@@ -59,26 +59,45 @@ def calculate_forecast(years, values, future_steps=2):
     return forecast_years, forecast_values
 
 # --- 2. AUTOMATED INSIGHT GENERATOR ---
-def generate_insights(total_vol, top_regions, commodity_split, historical_vals, forecast_vals, years):
+def generate_insights(total_vol, top_regions, commodity_split, historical_vals, forecast_vals, years, farmer_split):
     insights = []
     
-    # Growth Insight
+    # 1. Long-Term Growth Insight
     if forecast_vals and historical_vals and forecast_vals[-1] > historical_vals[-1]:
         growth_pct = ((forecast_vals[-1] - historical_vals[-1]) / historical_vals[-1]) * 100
         insights.append(f"📈 Projected Growth: Linear regression models predict a {growth_pct:.1f}% increase in yield, reaching {forecast_vals[-1]:,.0f} MT by {int(years[-1])+2}.")
     elif forecast_vals and historical_vals:
-        insights.append(f"📉 Attention Needed: Statistical trends forecast a potential dip in production to {forecast_vals[-1]:,.0f} MT in the coming years.")
+        insights.append(f"📉 Attention Needed: Statistical trends forecast a potential dip in overall production to {forecast_vals[-1]:,.0f} MT in the coming years.")
 
-    # Top Region Insight
+    # 2. Top Region Insight
     if top_regions:
         insights.append(f"🏆 Regional Leader: {top_regions[0][0]} is the primary driving force, contributing {top_regions[0][1]:,.0f} MT to the district's total output.")
         
-    # Commodity Dependency Insight
+    # 3. Commodity Risk / Diversification Insight
     if commodity_split:
         top_comm = max(commodity_split, key=commodity_split.get)
         comm_pct = (commodity_split[top_comm] / total_vol) * 100 if total_vol > 0 else 0
-        insights.append(f"🌾 Portfolio Risk: {top_comm} heavily dominates the current harvest, making up {comm_pct:.1f}% of all production. Diversification is recommended.")
-        
+        if comm_pct > 50:
+            insights.append(f"⚠️ Portfolio Risk: {top_comm} heavily dominates the current harvest, making up {comm_pct:.1f}% of all production. Crop diversification is recommended.")
+        else:
+            insights.append(f"⚖️ Balanced Output: The region has a healthy, diversified agricultural portfolio, with {top_comm} leading at a safe {comm_pct:.1f}%.")
+
+    # 4. Workforce Efficiency Insight
+    total_farmers = sum(farmer_split.values())
+    if total_farmers > 0 and total_vol > 0:
+        efficiency = total_vol / total_farmers
+        insights.append(f"🧑‍🌾 Yield Efficiency: On average, the current workforce is producing {efficiency:.2f} Metric Tons of food per registered farmer.")
+
+    # 5. Short-Term Momentum Insight (Compares the last 2 recorded years)
+    if len(historical_vals) >= 2:
+        last_yr, prev_yr = historical_vals[-1], historical_vals[-2]
+        if last_yr > prev_yr:
+            jump = ((last_yr - prev_yr) / prev_yr) * 100
+            insights.append(f"🚀 Recent Momentum: Production jumped by {jump:.1f}% in the most recently recorded year compared to the year prior.")
+        elif last_yr < prev_yr:
+            drop = ((prev_yr - last_yr) / prev_yr) * 100
+            insights.append(f"🔍 Recent Decline: Production dropped by {drop:.1f}% in the most recent year. Local agricultural interventions may be required.")
+
     return insights
 
 @app.get("/api/filters")
@@ -132,8 +151,8 @@ def get_dashboard_data(location: str = "All Locations", year: str = "All Years",
     historical_values = [trend_split[y] for y in sorted_years]
     forecast_years, forecast_values = calculate_forecast(sorted_years, historical_values)
 
-    # GENERATE INSIGHTS
-    ai_insights = generate_insights(total_volume, top_regions, commodity_split, historical_values, forecast_values, sorted_years)
+    # GENERATE INSIGHTS (Now includes farmer_split!)
+    ai_insights = generate_insights(total_volume, top_regions, commodity_split, historical_values, forecast_values, sorted_years, farmer_split)
 
     return {
         "kpis": {"totalVolume": round(total_volume, 2), "topRegion": top_regions[0][0] if top_regions else "N/A", "activeAreas": active_areas, "totalFarmers": total_farmers},
