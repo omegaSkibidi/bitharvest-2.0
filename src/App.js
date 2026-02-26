@@ -230,30 +230,6 @@ function App() {
                     <div className="kpi-sub" style={{ textDecoration: 'underline', textUnderlineOffset: '2px' }}>Click to see details →</div>
                 </div>
             </div>
-
-            {/* NEW: AUTOMATED AI INSIGHTS SECTION */}
-            <div className="card" style={{ marginBottom: '1.5rem', borderLeft: '4px solid var(--gold)', background: 'linear-gradient(to right, #fefce8, white)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--gold)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <i className="fa-solid fa-wand-magic-sparkles"></i>
-                    </div>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#854d0e' }}>Automated Analyst Insights</h3>
-                </div>
-                <ul style={{ margin: 0, paddingLeft: '2.5rem', color: 'var(--slate-700)', lineHeight: 1.8 }}>
-                    {apiData.aiInsights.map((insight, index) => (
-                        <li key={index} style={{ marginBottom: '0.5rem' }}>{insight}</li>
-                    ))}
-                </ul>
-            </div>
-
-            <div className="card" style={{ marginBottom: '1.5rem' }}>
-                <div className="card-header">
-                    <span className="card-title">Harvest Totals & Future Forecast</span>
-                    <span className="card-badge badge-gold" style={{borderColor: 'var(--gold)', color: '#854d0e', background: '#fef08a'}}>Linear Regression</span>
-                </div>
-                <div style={{ height: '250px' }}><canvas id="lineChart"></canvas></div>
-            </div>
-
             <div className="grid-main">
                 <div className="card">
                     <div className="card-header">
@@ -279,6 +255,31 @@ function App() {
                     </div>
                 </div>
             </div>
+
+            {/* NEW: AUTOMATED AI INSIGHTS SECTION */}
+            <div className="card" style={{ marginBottom: '1.5rem', borderLeft: '4px solid var(--gold)', background: 'linear-gradient(to right, #fefce8, white)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--gold)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <i className="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#854d0e' }}>Automated Analyst Insights</h3>
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '2.5rem', color: 'var(--slate-700)', lineHeight: 1.8 }}>
+                    {apiData.aiInsights.map((insight, index) => (
+                        <li key={index} style={{ marginBottom: '0.5rem' }}>{insight}</li>
+                    ))}
+                </ul>
+            </div>
+
+            <div className="card" style={{ marginBottom: '1.5rem' }}>
+                <div className="card-header">
+                    <span className="card-title">Harvest Totals & Future Forecast</span>
+                    <span className="card-badge badge-gold" style={{borderColor: 'var(--gold)', color: '#854d0e', background: '#fef08a'}}>Linear Regression</span>
+                </div>
+                <div style={{ height: '250px' }}><canvas id="lineChart"></canvas></div>
+            </div>
+
+            
 
             <div className="grid-bottom" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
                 <div className="card">

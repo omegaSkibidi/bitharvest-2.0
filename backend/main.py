@@ -2,10 +2,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
 from collections import defaultdict
+from dotenv import load_dotenv
 
 # --- DATABASE CONNECTION ---
-DATABASE_URL = "postgresql://postgres:cdpogi@localhost:5432/bitharvest"
-engine = create_engine(DATABASE_URL)
+# --- DATABASE CONNECTION ---
+# Your exact Supabase URL with the '@' in the password safely encoded as '%40'
+DATABASE_URL = "postgresql://postgres.jrabvvtvgtcffvewjgoq:BITanimapao2026@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
+
+
+# Add pool_pre_ping to keep the cloud connection stable
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 app = FastAPI(title="BitHarvest API")
 
