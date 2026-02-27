@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
+import WelcomeModal from './WelcomeModal';
 
 const albayCoords = {
     "Polangui": [13.29, 123.48], "Oas": [13.25, 123.49], "Ligao City": [13.18, 123.53], "Libon": [13.28, 123.43],
@@ -11,7 +12,7 @@ const albayCoords = {
 const LegendRow = ({ title, value, percentage, color }) => (
     <div className="legend-row">
         <div className="legend-top">
-            <span>{title} <span style={{fontSize:'0.65rem', color:'#94a3b8'}}>({value.toLocaleString()} MT)</span></span>
+            <span>{title} <span style={{fontSize:'0.65rem', color:'var(--text-muted)'}}>({value.toLocaleString()} MT)</span></span>
             <span>{percentage}%</span>
         </div>
         <div className="legend-bar-track">
@@ -21,7 +22,6 @@ const LegendRow = ({ title, value, percentage, color }) => (
 );
 
 function App() {
-  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(true);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [filters, setFilters] = useState({ locations: [], years: [], commodities: [] });
   const [selectedLocation, setSelectedLocation] = useState("All Locations");
@@ -58,18 +58,20 @@ function App() {
               const production = apiData.regionalProduction[index];
               const radiusSize = Math.max(10, Math.min(30, (production / 5000) * 5));
 
-              L.circleMarker(coords, { radius: radiusSize, color: '#15803d', fillColor: '#22c55e', fillOpacity: 0.6, weight: 2 
+              // Map Marker uses Primary (#3D562A) and Secondary (#5F783D)
+              L.circleMarker(coords, { radius: radiusSize, color: '#3D562A', fillColor: '#5F783D', fillOpacity: 0.7, weight: 2 
               }).addTo(mapInstance).bindPopup(`<strong>${municipality}</strong><br/>${production.toLocaleString()} MT`);
           });
       }
 
       // CHARTS
       if (Chart) {
-          Chart.defaults.color = '#64748b';
+          Chart.defaults.color = '#4A5240'; // Text muted color
           Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
-          const greenPalette = ['#052e16', '#15803d', '#22c55e', '#4ade80', '#bbf7d0'];
+          
+          // Using your exact palette + derived shades
+          const customPalette = ['#3D562A', '#4E6A34', '#5F783D', '#758E4E', '#8F9A75'];
 
-          // Predictive Line Chart
           chartRefs.current.lineChart = new Chart(document.getElementById('lineChart').getContext('2d'), {
               type: 'line',
               data: {
@@ -78,13 +80,12 @@ function App() {
                       {
                           label: 'Recorded Harvest (MT)',
                           data: [...apiData.historicalTrendData, ...Array(apiData.forecastLabels.length).fill(null)],
-                          borderColor: '#15803d', backgroundColor: 'rgba(22,163,74,0.1)', fill: true, tension: 0.3, borderWidth: 3
+                          borderColor: '#3D562A', backgroundColor: 'rgba(61, 86, 42, 0.1)', fill: true, tension: 0.3, borderWidth: 3
                       },
                       {
                           label: 'AI Forecast (MT)',
-                          // Stitch the prediction line to the last recorded data point
                           data: [...Array(apiData.historicalTrendData.length - 1).fill(null), apiData.historicalTrendData[apiData.historicalTrendData.length-1], ...apiData.forecastData],
-                          borderColor: '#ca8a04', borderDash: [6, 6], backgroundColor: 'transparent', tension: 0.3, borderWidth: 3
+                          borderColor: '#758E4E', borderDash: [6, 6], backgroundColor: 'transparent', tension: 0.3, borderWidth: 3
                       }
                   ]
               },
@@ -95,7 +96,7 @@ function App() {
               type: 'bar',
               data: {
                   labels: Object.keys(apiData.farmerSplit),
-                  datasets: [{ label: 'Farmers', data: Object.values(apiData.farmerSplit), backgroundColor: '#22c55e', borderRadius: 4 }]
+                  datasets: [{ label: 'Farmers', data: Object.values(apiData.farmerSplit), backgroundColor: '#5F783D', borderRadius: 4 }]
               },
               options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } } }
           });
@@ -104,7 +105,7 @@ function App() {
               type: 'bar',
               data: {
                   labels: apiData.regionalLabels,
-                  datasets: [{ label: 'Production (MT)', data: apiData.regionalProduction, backgroundColor: greenPalette, borderRadius: 4 }]
+                  datasets: [{ label: 'Production (MT)', data: apiData.regionalProduction, backgroundColor: customPalette, borderRadius: 4 }]
               },
               options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
           });
@@ -113,7 +114,7 @@ function App() {
               type: 'doughnut',
               data: {
                   labels: Object.keys(apiData.commoditySplit),
-                  datasets: [{ data: Object.values(apiData.commoditySplit), backgroundColor: greenPalette, borderWidth: 2, borderColor: '#fff' }]
+                  datasets: [{ data: Object.values(apiData.commoditySplit), backgroundColor: customPalette, borderWidth: 2, borderColor: '#FAF9F6' }]
               },
               options: { maintainAspectRatio: false, cutout: '72%', plugins: { legend: { display: false } } }
           });
@@ -122,25 +123,16 @@ function App() {
       return () => { if (mapInstance) mapInstance.remove(); };
   }, [apiData]);
 
-  if (!apiData) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading BitHarvest Predictive Analytics...</div>;
+  if (!apiData) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--primary)' }}>Loading BitHarvest Predictive Analytics...</div>;
 
   const commKeys = Object.keys(apiData.commoditySplit);
   const commVals = Object.values(apiData.commoditySplit);
-  const greenPalette = ['var(--green-950)', 'var(--green-700)', 'var(--green-500)', 'var(--green-400)', 'var(--green-200)'];
+  // Match custom palette
+  const customPalette = ['#3D562A', '#4E6A34', '#5F783D', '#758E4E', '#8F9A75'];
 
   return (
     <div>
-        {isWelcomeModalOpen && (
-            <div id="welcome-modal">
-                <div className="modal-card">
-                    <div className="modal-icon"><i className="fa-solid fa-seedling"></i></div>
-                    <div className="modal-tag">Albay, Bicol Region</div>
-                    <h2>BitHarvest Data Portal</h2>
-                    <p>A smart dashboard featuring automated insights and future harvest predictions.</p>
-                    <button className="btn-primary" onClick={() => setIsWelcomeModalOpen(false)}>View Dashboard</button>
-                </div>
-            </div>
-        )}
+        <WelcomeModal />
 
         {isStatusModalOpen && (
             <div id="welcome-modal">
@@ -148,13 +140,16 @@ function App() {
                     <div className="modal-icon" style={{ background: 'linear-gradient(135deg, var(--gold), #fef08a)'}}>
                         <i className="fa-solid fa-trophy" style={{color: '#854d0e'}}></i>
                     </div>
-                    <h2>Top Producing Cities</h2>
-                    <p style={{marginBottom: '1rem'}}>The cities that harvested the most crops based on your selected filters.</p>
-                    <div style={{textAlign: 'left', marginBottom: '2rem', background: 'var(--slate-50)', padding: '1rem', borderRadius: '1rem', border: '1px solid var(--slate-200)'}}>
-                        {Object.entries(apiData.topPerCommodity).map(([comm, data]) => (
-                            <div key={comm} style={{display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0', borderBottom: '1px solid var(--slate-200)'}}>
-                                <strong style={{color: 'var(--green-800)', textTransform: 'uppercase', fontSize: '0.85rem', letterSpacing: '1px'}}>{comm}</strong>
-                                <span style={{fontWeight: '600', color: 'var(--slate-700)'}}>{data.municipality} <span style={{color: 'var(--slate-500)', fontWeight: 'normal'}}>({data.production.toLocaleString()} MT)</span></span>
+                    <h2>Top Producing Cities {selectedCommodity !== 'All Commodities' ? `for ${selectedCommodity}` : 'Overall'}</h2>
+                    <p style={{marginBottom: '1rem'}}>The highest yielding municipalities based on current filters.</p>
+                    
+                    <div style={{textAlign: 'left', marginBottom: '2rem', background: 'var(--bg-color)', padding: '1rem', borderRadius: '1rem', border: '1px solid var(--border-color)'}}>
+                        {apiData.topProducersList.map((data, index) => (
+                            <div key={data.municipality} style={{display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0', borderBottom: index < apiData.topProducersList.length - 1 ? '1px solid var(--border-color)' : 'none'}}>
+                                <strong style={{color: 'var(--primary)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                    <span style={{ color: 'var(--gold)', fontSize: '1.1rem' }}>#{index + 1}</span> {data.municipality}
+                                </strong>
+                                <span style={{fontWeight: '600', color: 'var(--text-main)'}}>{data.production.toLocaleString()} MT</span>
                             </div>
                         ))}
                     </div>
@@ -169,19 +164,40 @@ function App() {
                     <div className="logo-icon"><i className="fa-solid fa-leaf"></i></div>
                     <span className="logo-text">BitHarvest</span>
                 </div>
-                <nav className="header-nav"><span className="nav-pill active">Overview</span></nav>
+                
+                <nav className="header-nav" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <span className="nav-pill active">Overview</span>
+                    <button className="admin-btn">Admin Portal</button>
+                </nav>
             </div>
         </header>
 
-        <main style={{ overflow: (isWelcomeModalOpen || isStatusModalOpen) ? 'hidden' : 'auto' }}>
+        <main style={{ overflow: isStatusModalOpen ? 'hidden' : 'auto' }}>
             <div className="page-banner">
                 <div className="banner-left">
-                    <h1>Albay <em>Harvest</em> Report</h1>
-                    <p>Live database tracking and AI-powered predictive analysis.</p>
+                    <h1>Provincial <em>Agriculture</em> Analytics</h1>
+                    <p>Official data portal for Albay crop production, demographics, and AI forecasting.</p>
                 </div>
-                <div className="banner-meta">
-                    <div className="banner-badge"><span className="bval">{apiData.kpis.totalVolume.toLocaleString()}</span><span className="blabel">Total Metric Tons (MT)</span></div>
-                    <div className="banner-badge"><span className="bval">{apiData.kpis.totalFarmers.toLocaleString()}</span><span className="blabel">Total Farmers</span></div>
+                
+                <div className="banner-meta" style={{ display: 'flex', gap: '15px' }}>
+                    <div className="banner-badge" style={{ alignItems: 'flex-start', padding: '12px 20px', background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                        <span className="blabel" style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8, marginBottom: '6px' }}>
+                            <i className="fa-solid fa-sliders" style={{ marginRight: '6px' }}></i> Data Scope
+                        </span>
+                        <span className="bval" style={{ fontSize: '1.05rem', fontWeight: 600, letterSpacing: '0' }}>
+                            {selectedCommodity === 'All Commodities' ? 'All Crops' : selectedCommodity} • {selectedYear}
+                        </span>
+                    </div>
+                    
+                    <div className="banner-badge" style={{ alignItems: 'flex-start', padding: '12px 20px', background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                        <span className="blabel" style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8, marginBottom: '6px' }}>
+                            <i className="fa-solid fa-database" style={{ marginRight: '6px' }}></i> System Status
+                        </span>
+                        <span className="bval" style={{ fontSize: '1.05rem', fontWeight: 600, color: '#e8efe1', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0' }}>
+                            <span style={{ display: 'block', width: '8px', height: '8px', backgroundColor: '#e8efe1', borderRadius: '50%', boxShadow: '0 0 10px #e8efe1' }}></span>
+                            Live Cloud Sync
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -223,13 +239,14 @@ function App() {
                     <div className="kpi-sub neutral">In Albay District</div>
                 </div>
                 
-                <div className="kpi-card" style={{ borderColor: 'var(--green-400)', background: 'var(--green-50)', gridColumn: 'span 2', cursor: 'pointer' }} onClick={() => setIsStatusModalOpen(true)}>
-                    <div className="bg-icon" style={{ color: 'var(--green-700)' }}><i className="fa-solid fa-medal"></i></div>
-                    <div className="kpi-label" style={{ color: 'var(--green-700)' }}>Top Producers</div>
-                    <div className="kpi-value" style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--green-900)', letterSpacing: 0, lineHeight: 1.3 }}>View Best Cities</div>
-                    <div className="kpi-sub" style={{ textDecoration: 'underline', textUnderlineOffset: '2px' }}>Click to see details →</div>
+                <div className="kpi-card" style={{ borderColor: 'var(--border-color)', background: 'var(--primary-light)', gridColumn: 'span 2', cursor: 'pointer' }} onClick={() => setIsStatusModalOpen(true)}>
+                    <div className="bg-icon" style={{ color: 'var(--primary)' }}><i className="fa-solid fa-medal"></i></div>
+                    <div className="kpi-label" style={{ color: 'var(--primary)' }}>Top Producers</div>
+                    <div className="kpi-value" style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: 0, lineHeight: 1.3 }}>View Best Cities</div>
+                    <div className="kpi-sub" style={{ textDecoration: 'underline', textUnderlineOffset: '2px', color: 'var(--secondary)' }}>Click to see details →</div>
                 </div>
             </div>
+            
             <div className="grid-main">
                 <div className="card">
                     <div className="card-header">
@@ -246,25 +263,24 @@ function App() {
                     <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <canvas id="doughnutChart"></canvas>
                     </div>
-                    <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--slate-100)' }}>
+                    <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
                         {commKeys.map((key, index) => {
                             const val = commVals[index];
                             const pct = apiData.kpis.totalVolume > 0 ? ((val / apiData.kpis.totalVolume) * 100).toFixed(1) : 0;
-                            return <LegendRow key={key} title={key} value={val} percentage={pct} color={greenPalette[index]} />;
+                            return <LegendRow key={key} title={key} value={val} percentage={pct} color={customPalette[index]} />;
                         })}
                     </div>
                 </div>
             </div>
 
-            {/* NEW: AUTOMATED AI INSIGHTS SECTION */}
-            <div className="card" style={{ marginBottom: '1.5rem', borderLeft: '4px solid var(--gold)', background: 'linear-gradient(to right, #fefce8, white)' }}>
+            <div className="card" style={{ marginBottom: '1.5rem', borderLeft: '4px solid var(--primary)', background: 'var(--container-bg)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--gold)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <i className="fa-solid fa-wand-magic-sparkles"></i>
                     </div>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#854d0e' }}>Automated Analyst Insights</h3>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--primary)' }}>Automated Analyst Insights</h3>
                 </div>
-                <ul style={{ margin: 0, paddingLeft: '2.5rem', color: 'var(--slate-700)', lineHeight: 1.8 }}>
+                <ul style={{ margin: 0, paddingLeft: '2.5rem', color: 'var(--text-muted)', lineHeight: 1.8 }}>
                     {apiData.aiInsights.map((insight, index) => (
                         <li key={index} style={{ marginBottom: '0.5rem' }}>{insight}</li>
                     ))}
@@ -274,12 +290,10 @@ function App() {
             <div className="card" style={{ marginBottom: '1.5rem' }}>
                 <div className="card-header">
                     <span className="card-title">Harvest Totals & Future Forecast</span>
-                    <span className="card-badge badge-gold" style={{borderColor: 'var(--gold)', color: '#854d0e', background: '#fef08a'}}>Linear Regression</span>
+                    <span className="card-badge" style={{borderColor: 'var(--complementary)', color: 'var(--primary)', background: 'var(--primary-light)'}}>Linear Regression</span>
                 </div>
                 <div style={{ height: '250px' }}><canvas id="lineChart"></canvas></div>
             </div>
-
-            
 
             <div className="grid-bottom" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
                 <div className="card">

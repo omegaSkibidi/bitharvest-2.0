@@ -5,10 +5,8 @@ from collections import defaultdict
 from dotenv import load_dotenv
 
 # --- DATABASE CONNECTION ---
-# --- DATABASE CONNECTION ---
 # Your exact Supabase URL with the '@' in the password safely encoded as '%40'
 DATABASE_URL = "postgresql://postgres.jrabvvtvgtcffvewjgoq:BITanimapao2026@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
-
 
 # Add pool_pre_ping to keep the cloud connection stable
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
@@ -64,64 +62,78 @@ def calculate_forecast(years, values, future_steps=2):
     
     return forecast_years, forecast_values
 
-# --- 2. AUTOMATED INSIGHT GENERATOR ---
-def generate_insights(total_vol, top_regions, commodity_split, historical_vals, forecast_vals, years, farmer_split, selected_commodity):
+# --- 2. EXECUTIVE INSIGHT GENERATOR ---
+# Notice we added 'selected_location' to the end of the parameters
+def generate_insights(total_vol, top_regions, commodity_split, historical_vals, forecast_vals, years, farmer_split, selected_commodity, selected_location):
     insights = []
     
-    # --- SECTION A: GLOBAL INSIGHTS (Shown for "All Commodities") ---
-    if selected_commodity == "All Commodities":
-        # 1. Growth/Trend Insight
+    # --- SECTION A: MACRO (Province) vs MICRO (Municipal) INSIGHTS ---
+    if selected_location == "All Locations":
+        # Global/Provincial Insights
+        if selected_commodity == "All Commodities":
+            if forecast_vals and historical_vals and forecast_vals[-1] > historical_vals[-1]:
+                growth_pct = ((forecast_vals[-1] - historical_vals[-1]) / historical_vals[-1]) * 100
+                insights.append(f"📈 Macro Projection: Statistical linear models forecast a {growth_pct:.1f}% net yield expansion across the provincial sector over the next 24 months.")
+            
+            if commodity_split:
+                top_comm = max(commodity_split, key=commodity_split.get)
+                comm_pct = (commodity_split[top_comm] / total_vol) * 100 if total_vol > 0 else 0
+                if comm_pct > 50:
+                    insights.append(f"⚠️ Economic Vulnerability: Provincial output is heavily concentrated in {top_comm} ({comm_pct:.1f}%). Policy interventions supporting crop diversification are recommended.")
+                else:
+                    insights.append(f"⚖️ Portfolio Stability: The district currently exhibits a diversified agricultural portfolio, ensuring economic resilience.")
+    else:
+        # Localized/Municipal Insights (When a specific city is clicked)
         if forecast_vals and historical_vals and forecast_vals[-1] > historical_vals[-1]:
             growth_pct = ((forecast_vals[-1] - historical_vals[-1]) / historical_vals[-1]) * 100
-            insights.append(f"📈 District Growth: Statistical models predict a {growth_pct:.1f}% rise in total yield across all sectors.")
-        
-        # 2. Portfolio/Risk Insight
-        if commodity_split:
+            crop_text = selected_commodity if selected_commodity != "All Commodities" else "agricultural"
+            insights.append(f"📈 Localized Growth: Trajectory models predict a {growth_pct:.1f}% growth in {crop_text} yield specifically for the municipality of {selected_location}.")
+        elif forecast_vals and historical_vals:
+            insights.append(f"📉 Attention Needed: Forecasts indicate a potential plateau or dip in {selected_location}'s output. Targeted LGU interventions or budget reviews may be required.")
+
+        if commodity_split and selected_commodity == "All Commodities":
             top_comm = max(commodity_split, key=commodity_split.get)
             comm_pct = (commodity_split[top_comm] / total_vol) * 100 if total_vol > 0 else 0
-            if comm_pct > 50:
-                insights.append(f"⚠️ Production Focus: {top_comm} currently dominates {comm_pct:.1f}% of output. Consider encouraging alternative crops.")
-            else:
-                insights.append(f"⚖️ Stable Diversity: The district maintains a healthy balance between its primary commodities.")
+            insights.append(f"🎯 Municipal Focus: {top_comm} is the primary economic driver for {selected_location}, representing {comm_pct:.1f}% of its local volume.")
 
-    # --- SECTION B: UNIQUE COMMODITY INSIGHTS (Shown only when one is selected) ---
+    # --- SECTION B: COMMODITY-SPECIFIC POLICY BRIEFS ---
     commodity_facts = {
         "Rice": [
-            "🍚 Food Security: Rice remains the staple pillar of the local economy and labor force.",
-            "💧 Irrigation Note: Yields for Rice are heavily dependent on NIA water scheduling and seasonal rainfall."
+            "🍚 Food Security Mandate: Rice dictates the foundational stability of the local labor force. Priority must be given to modernizing NIA irrigation schedules.",
+            "💧 Climate Vulnerability: Historical yields indicate high susceptibility to El Niño/La Niña cycles. Drought-resistant seed subsidies should be reviewed."
         ],
         "Corn": [
-            "🌽 Livestock Support: Most local yellow corn production directly supports the regional poultry and livestock industries.",
-            "☀️ Post-Harvest: Strengthening solar drying facilities could reduce post-harvest losses for corn farmers."
+            "🌽 Agri-Economic Impact: Yellow corn production is the primary catalyst for the regional poultry and livestock supply chains.",
+            "☀️ Infrastructure Need: High post-harvest losses remain a threat. CAPEX allocation for localized solar drying facilities is strongly advised."
         ],
         "Coconut": [
-            "🥥 Industrial Value: Coconut (Copra) is a major export-oriented commodity; price fluctuations affect thousands of local households.",
-            "⏳ Tree Management: The trend suggests a need for replanting senile trees to maintain long-term copra production."
+            "🥥 Export Reliance: Copra remains a vital export-oriented asset. However, market volatility directly impacts household income stability for thousands of farmers.",
+            "⏳ Resource Depletion: Current data trends underscore an urgent need for government-sponsored replanting initiatives to replace senile trees."
         ],
         "Abaca": [
-            "fiber Strongest Fiber: Albay is world-renowned for Abaca; focus should remain on disease-resistant (Bunchy Top) varieties.",
-            "🎨 Handicrafts: Abaca production directly fuels the local cottage industries and artisanal handwoven products."
+            "🧶 Strategic Export: Albay retains a competitive global advantage in Abaca. Budgetary focus must prioritize the distribution of Bunchy Top disease-resistant cultivars.",
+            "🎨 Micro-Economy Catalyst: Raw fiber production directly sustains the provincial cottage industry and artisanal handicraft sectors."
         ],
         "Cacao": [
-            "🍫 Emerging Market: Cacao is a high-value crop with significant potential for value-added processing (Tablea).",
-            "🌱 Intercropping: Cacao thrives well when intercropped with Coconut, maximizing land utility for small farmers."
+            "🍫 High-Value Potential: Cacao represents an emerging, high-margin market. Strategic grants for local value-added processing (e.g., Tablea manufacturing) will increase GDP.",
+            "🌱 Land Optimization: Cacao demonstrates excellent viability for intercropping with Coconut, offering a dual-income stream for smallholder farmers."
         ]
     }
 
     if selected_commodity in commodity_facts:
-        # Add the unique facts for that specific crop
         insights.extend(commodity_facts[selected_commodity])
 
-    # --- SECTION C: DATA-DRIVEN INSIGHTS (Always shown based on the numbers) ---
-    # 1. Top Region Leader
-    if top_regions:
-        insights.append(f"🏆 Leading Area: {top_regions[0][0]} is currently the most productive zone for {selected_commodity.lower()}.")
+    # --- SECTION C: PERFORMANCE METRICS ---
+    # We hide the "Strategic Hub" insight if they are already looking at a specific city!
+    if selected_location == "All Locations" and top_regions:
+        insights.append(f"🏆 Strategic Hub: {top_regions[0][0]} serves as the primary engine for this sector, representing the highest concentration of output.")
         
-    # 2. Efficiency Insight
     total_farmers = sum(farmer_split.values())
     if total_farmers > 0 and total_vol > 0:
         efficiency = total_vol / total_farmers
-        insights.append(f"🧑‍🌾 Efficiency: The current sector is averaging {efficiency:.2f} MT per registered farmer.")
+        # The text changes depending on if we are looking at a city or the province
+        scope = f"in {selected_location}" if selected_location != "All Locations" else "across the province"
+        insights.append(f"🧑‍🌾 Workforce Efficiency: The active agricultural labor force {scope} is currently yielding a per capita output of {efficiency:.2f} Metric Tons.")
 
     return insights
 
@@ -138,13 +150,7 @@ def get_filters():
 def get_dashboard_data(location: str = "All Locations", year: str = "All Years", commodity: str = "All Commodities"):
     all_data = get_unified_data()
     
-    # TOP PRODUCERS MODAL
-    modal_data = [d for d in all_data if (year == "All Years" or d["year"] == year)]
-    comm_mun_prod = defaultdict(lambda: defaultdict(float))
-    for d in modal_data: comm_mun_prod[d["commodity"]][d["municipality"]] += d["production"]
-    top_per_commodity = {comm: {"municipality": max(muns, key=muns.get), "production": round(muns[max(muns, key=muns.get)], 2)} for comm, muns in comm_mun_prod.items() if muns}
-
-    # FILTERED DATA
+    # --- 1. MAIN FILTERED DATA (Respects ALL filters) ---
     filtered_data = [d for d in all_data if (location == "All Locations" or d["municipality"] == location) and (year == "All Years" or d["year"] == year) and (commodity == "All Commodities" or d["commodity"] == commodity)]
                      
     total_volume = sum(d["production"] for d in filtered_data)
@@ -162,9 +168,17 @@ def get_dashboard_data(location: str = "All Locations", year: str = "All Years",
         farmer_split = {"Corn": f_corn, "Rice": f_rice, "Coconut": f_coco, "Abaca": f_abaca, "Cacao": f_cacao}
         total_farmers = sum(farmer_split.values())
 
+    # --- 2. UPDATED: CONSTANT LEADERBOARD LOGIC ---
+    # We create a new dataset that ignores 'location' but keeps 'year' and 'commodity'
+    # This ensures the Top 5 cities always show up for comparison!
+    regional_comparison_data = [d for d in all_data if (year == "All Years" or d["year"] == year) and (commodity == "All Commodities" or d["commodity"] == commodity)]
+    
     region_split = defaultdict(float)
-    for d in filtered_data: region_split[d["municipality"]] += d["production"]
+    for d in regional_comparison_data: region_split[d["municipality"]] += d["production"]
+    
+    # Sort them highest to lowest and grab the top 5
     top_regions = sorted(region_split.items(), key=lambda x: x[1], reverse=True)[:5]
+    top_producers_list = [{"municipality": item[0], "production": round(item[1], 2)} for item in top_regions]
     
     # PREDICTION
     trend_split = defaultdict(float)
@@ -176,8 +190,7 @@ def get_dashboard_data(location: str = "All Locations", year: str = "All Years",
     historical_values = [trend_split[y] for y in sorted_years]
     forecast_years, forecast_values = calculate_forecast(sorted_years, historical_values)
 
-    # GENERATE INSIGHTS (Now includes farmer_split!)
-    ai_insights = generate_insights(total_volume, top_regions, commodity_split, historical_values, forecast_values, sorted_years, farmer_split, commodity)
+    ai_insights = generate_insights(total_volume, top_regions, commodity_split, historical_values, forecast_values, sorted_years, farmer_split, commodity, location)
 
     return {
         "kpis": {"totalVolume": round(total_volume, 2), "topRegion": top_regions[0][0] if top_regions else "N/A", "activeAreas": active_areas, "totalFarmers": total_farmers},
@@ -189,6 +202,9 @@ def get_dashboard_data(location: str = "All Locations", year: str = "All Years",
         "historicalTrendData": [round(v, 2) for v in historical_values],
         "forecastLabels": forecast_years,
         "forecastData": [round(v, 2) for v in forecast_values],
-        "topPerCommodity": top_per_commodity,
+        
+        # New key for the modal!
+        "topProducersList": top_producers_list, 
+        
         "aiInsights": ai_insights
     }
