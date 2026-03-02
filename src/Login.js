@@ -11,8 +11,8 @@ function Login() {
     // TEMPORARY: Skipping backend validation for the APAO presentation
     console.log("Bypassing login for presentation purposes...");
     
-    // Redirect straight to the internal staff dashboard
-    navigate('/user-dashboard'); 
+    // Redirect straight to the new SPA encoder dashboard layout
+    navigate('/encoder'); 
   };
 
   return (
