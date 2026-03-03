@@ -132,12 +132,7 @@ export default function EncoderOverview() {
           </div>
         </div>
       </header>
-
-      {/* TIP BANNER */}
-      <div className="tip-banner">
-        <span className="tip-icon"><i className="fa-solid fa-circle-info" /></span>
-        <span className="tip-text"><strong>CACAD-005</strong> is currently pending review. Admin typically responds within 24 hours.</span>
-      </div>
+            
 
       {/* STATS */}
       <div className="section-label">Report Summary</div>

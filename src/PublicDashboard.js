@@ -25,30 +25,53 @@ const LegendRow = ({ title, value, percentage, color }) => (
 
 function PublicDashboard() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const [filters, setFilters] = useState({ locations: [], years: [], quarters: [], groups: [], groupedCommodities: {} });
+  const [filters, setFilters] = useState({ locations: [], years: [], quarters: [], groupedCommodities: {} });
   
   const [selectedLocation, setSelectedLocation] = useState("All Locations");
   const [selectedYear, setSelectedYear] = useState("All Years");
   const [selectedQuarter, setSelectedQuarter] = useState("All Quarters");
-  const [selectedGroup, setSelectedGroup] = useState("All Groups");
-  const [selectedCommodity, setSelectedCommodity] = useState("All Commodities");
   
+  const [allCommodities, setAllCommodities] = useState([]);
+  const [selectedCommodity, setSelectedCommodity] = useState("All Commodities");
+  const [cropSearchTerm, setCropSearchTerm] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   const [apiData, setApiData] = useState(null);
   const chartRefs = useRef({});
   const navigate = useNavigate();
 
   useEffect(() => {
-      fetch('http://localhost:8000/api/filters').then(res => res.json()).then(data => setFilters(data));
+      fetch('http://localhost:8000/api/filters')
+        .then(res => res.json())
+        .then(data => {
+            setFilters(data);
+            if (data.groupedCommodities) {
+                const flatList = Object.values(data.groupedCommodities).flat();
+                setAllCommodities([...new Set(flatList)]); 
+            }
+        });
   }, []);
 
   useEffect(() => {
-      setSelectedCommodity("All Commodities");
-  }, [selectedGroup]);
+      const url = `http://localhost:8000/api/dashboard-data?location=${encodeURIComponent(selectedLocation)}&year=${encodeURIComponent(selectedYear)}&quarter=${encodeURIComponent(selectedQuarter)}&commoditySearch=${encodeURIComponent(selectedCommodity === "All Commodities" ? "" : selectedCommodity)}`;
+      fetch(url).then(res => res.json()).then(data => setApiData(data));
+  }, [selectedLocation, selectedYear, selectedQuarter, selectedCommodity]);
 
   useEffect(() => {
-      const url = `http://localhost:8000/api/dashboard-data?location=${encodeURIComponent(selectedLocation)}&year=${encodeURIComponent(selectedYear)}&quarter=${encodeURIComponent(selectedQuarter)}&group=${encodeURIComponent(selectedGroup)}&commodity=${encodeURIComponent(selectedCommodity)}`;
-      fetch(url).then(res => res.json()).then(data => setApiData(data));
-  }, [selectedLocation, selectedYear, selectedQuarter, selectedGroup, selectedCommodity]);
+      const handleClickOutside = (event) => {
+          if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+              setIsDropdownOpen(false);
+              setCropSearchTerm(selectedCommodity === "All Commodities" ? "" : selectedCommodity);
+          }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [selectedCommodity]);
+
+  const filteredCommodities = allCommodities
+      .filter(c => c.toLowerCase().includes(cropSearchTerm.toLowerCase()))
+      .slice(0, 8); 
 
   useEffect(() => {
       if (!apiData) return;
@@ -57,7 +80,6 @@ function PublicDashboard() {
 
       Object.values(chartRefs.current).forEach(chart => chart && chart.destroy());
 
-      // --- MAP ---
       let mapInstance = null;
       const mapElement = document.getElementById('map');
       if (mapElement && L && !mapElement._leaflet_id) {
@@ -74,7 +96,6 @@ function PublicDashboard() {
           });
       }
 
-      // --- USER-FRIENDLY CHARTS ---
       if (Chart) {
           Chart.defaults.color = '#4A5240';
           Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
@@ -131,43 +152,48 @@ function PublicDashboard() {
               options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
           });
 
-          // 5. Stacked City Data - Filters Legend dynamically
-          let activeGroups = Object.keys(filters.groupedCommodities);
-          if (selectedGroup !== "All Groups") {
-              activeGroups = [selectedGroup]; 
-          }
-
-          const stackedDatasets = activeGroups.map((group, idx) => {
-              return {
-                  label: group,
-                  data: apiData.regionalLabels.map(city => apiData.stackedCityData[city]?.[group] || 0),
-                  backgroundColor: customPalette[idx % customPalette.length]
-              }
-          });
-
-          chartRefs.current.stackedChart = new Chart(document.getElementById('stackedChart').getContext('2d'), {
+          // 5. FIXED REGIONAL CHART (Now shows Volume vs Farmers comparison)
+          chartRefs.current.regionalCompChart = new Chart(document.getElementById('regionalCompChart').getContext('2d'), {
               type: 'bar',
-              data: { labels: apiData.regionalLabels, datasets: stackedDatasets },
-              options: { 
-                  maintainAspectRatio: false, 
-                  scales: { x: { stacked: true }, y: { stacked: true } },
-                  plugins: { legend: { position: 'bottom', labels: {boxWidth: 10} } } 
+              data: {
+                  labels: apiData.regionalLabels,
+                  datasets: [
+                      {
+                          label: 'Production Volume (MT)',
+                          data: apiData.regionalProduction,
+                          backgroundColor: '#3D562A',
+                          yAxisID: 'y'
+                      },
+                      {
+                          label: 'Active Farmers',
+                          data: apiData.regionalFarmers,
+                          backgroundColor: '#A5B08E',
+                          yAxisID: 'y1'
+                      }
+                  ]
+              },
+              options: {
+                  maintainAspectRatio: false,
+                  interaction: { mode: 'index', intersect: false },
+                  scales: {
+                      y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Metric Tons (MT)' } },
+                      y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Headcount' } }
+                  },
+                  plugins: { legend: { position: 'bottom', labels: {boxWidth: 10} } }
               }
           });
       }
 
       return () => { if (mapInstance) mapInstance.remove(); };
-  }, [apiData, filters.groupedCommodities, selectedGroup]);
+  }, [apiData]);
 
   if (!apiData) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--primary)' }}>Loading Quarterly Analytics...</div>;
 
   const topCrops = Object.keys(apiData.commoditySplit).slice(0, 5);
   
   const activeDataLabel = selectedCommodity !== "All Commodities" 
-        ? selectedCommodity 
-        : selectedGroup !== "All Groups" 
-            ? selectedGroup 
-            : "All Categories";
+        ? `Search: "${selectedCommodity}"` 
+        : "All Categories";
 
   return (
     <div>
@@ -217,35 +243,79 @@ function PublicDashboard() {
                 </div>
             </div>
 
-            {/* --- 5 SMART CASCADING FILTERS --- */}
-            <div className="filters-bar" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem', width: '100%', marginBottom: '2rem' }}>
+            <div className="filters-bar" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 2fr', gap: '1rem', width: '100%', marginBottom: '2rem' }}>
                 <select className="filter-select" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}>
-                    {filters.years.map(y => <option key={y} value={y}>{y}</option>)}
+                    {filters.years?.map(y => <option key={y} value={y}>{y}</option>) || <option>All Years</option>}
                 </select>
 
                 <select className="filter-select" value={selectedQuarter} onChange={(e) => setSelectedQuarter(e.target.value)}>
-                    {filters.quarters.map(q => <option key={q} value={q}>{q}</option>)}
+                    {filters.quarters?.map(q => <option key={q} value={q}>{q}</option>) || <option>All Quarters</option>}
                 </select>
 
                 <select className="filter-select" value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)}>
-                    {filters.locations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                    {filters.locations?.map(loc => <option key={loc} value={loc}>{loc}</option>) || <option>All Locations</option>}
                 </select>
 
-                <select className="filter-select" value={selectedGroup} onChange={(e) => setSelectedGroup(e.target.value)}>
-                    {filters.groups.map(grp => <option key={grp} value={grp}>{grp}</option>)}
-                </select>
+                {/* THE CUSTOM SEARCHABLE DROPDOWN */}
+                <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
+                    <i className="fa-solid fa-magnifying-glass" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', zIndex: 2 }}></i>
+                    
+                    <input 
+                        type="text" 
+                        className="filter-select dropdown-input" 
+                        placeholder="Search for a specific crop (e.g. Cacao)..." 
+                        value={isDropdownOpen ? cropSearchTerm : (selectedCommodity === "All Commodities" ? "" : selectedCommodity)}
+                        onChange={(e) => {
+                            setCropSearchTerm(e.target.value);
+                            setIsDropdownOpen(true);
+                        }}
+                        onFocus={() => {
+                            setIsDropdownOpen(true);
+                            if (selectedCommodity !== "All Commodities") setCropSearchTerm('');
+                        }}
+                        style={{ width: '100%', paddingLeft: '38px', cursor: 'text', border: isDropdownOpen ? '1px solid var(--primary)' : '1px solid var(--border-color)' }}
+                    />
 
-                <select className="filter-select" value={selectedCommodity} onChange={(e) => setSelectedCommodity(e.target.value)} disabled={selectedGroup === "All Groups"}>
-                    <option value="All Commodities">All {selectedGroup === "All Groups" ? "Specific Crops" : "Crops in Category"}</option>
-                    {selectedGroup !== "All Groups" && filters.groupedCommodities[selectedGroup]?.map(crop => (
-                        <option key={crop} value={crop}>{crop}</option>
-                    ))}
-                </select>
+                    {isDropdownOpen && (
+                        <div className="custom-dropdown-menu">
+                            <div 
+                                className={`custom-dropdown-item ${selectedCommodity === "All Commodities" ? 'active' : ''}`}
+                                onClick={() => {
+                                    setSelectedCommodity("All Commodities");
+                                    setCropSearchTerm("");
+                                    setIsDropdownOpen(false);
+                                }}
+                                style={{ borderBottom: '1px solid var(--border-color)' }}
+                            >
+                                All Commodities
+                            </div>
+
+                            {filteredCommodities.length > 0 ? (
+                                filteredCommodities.map(crop => (
+                                    <div 
+                                        key={crop} 
+                                        className={`custom-dropdown-item ${selectedCommodity === crop ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setSelectedCommodity(crop);
+                                            setCropSearchTerm(crop);
+                                            setIsDropdownOpen(false);
+                                        }}
+                                    >
+                                        {crop}
+                                    </div>
+                                ))
+                            ) : (
+                                <div style={{ padding: '12px 16px', fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                    No crops match "{cropSearchTerm}"
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* --- 8 FULL WIDTH KPI CARDS --- */}
+            {/* --- KPI CARDS --- */}
             <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem', width: '100%', marginBottom: '2rem' }}>
-                
                 <div className="kpi-card accent" style={{ background: 'var(--primary)', color: 'white' }}>
                     <div className="bg-icon"><i className="fa-solid fa-seedling"></i></div>
                     <div className="kpi-label" style={{ color: 'rgba(255,255,255,0.8)' }}>Total Harvest</div>
@@ -276,7 +346,7 @@ function PublicDashboard() {
                     <div className="kpi-value" style={{ fontSize: '1.2rem', textTransform: 'capitalize' }}>{apiData.kpis.topCrop}</div>
                     <div className="kpi-sub neutral">
                         <i className="fa-solid fa-check-circle" style={{color: 'var(--success)', marginRight: '5px'}}></i> 
-                        Across <strong>{Object.keys(apiData.groupSplit).length}</strong> active categories
+                        Dominating selected filters
                     </div>
                 </div>
 
@@ -359,23 +429,24 @@ function PublicDashboard() {
                 <div style={{ height: '300px' }}><canvas id="lineChart"></canvas></div>
             </div>
 
-            {/* ROW 4: Stacked City Data & Farmers */}
+            {/* ROW 4: UPDATED REGIONAL DISTRIBUTION & FARMERS */}
             <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem', width: '100%' }}>
                 <div className="card">
                     <div className="card-header">
                         <div>
-                            <span className="card-title">Regional Category Distribution</span>
+                            <span className="card-title">Production vs Labor Force per City</span>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                                 Filtered by: <strong>{activeDataLabel}</strong>
                             </div>
                         </div>
                         <span className="card-badge badge-slate">Top 5 Cities</span>
                     </div>
-                    <div style={{ height: '250px' }}><canvas id="stackedChart"></canvas></div>
+                    {/* CHANGED ID TO MATCH NEW CHART LOGIC */}
+                    <div style={{ height: '250px' }}><canvas id="regionalCompChart"></canvas></div>
                 </div>
                 <div className="card">
                     <div className="card-header">
-                        <span className="card-title">Labor Force Allocation</span>
+                        <span className="card-title">Total Active Farmers</span>
                         <span className="card-badge badge-green">Farmers per Crop</span>
                     </div>
                     <div style={{ height: '250px' }}><canvas id="farmerChart"></canvas></div>
@@ -383,6 +454,42 @@ function PublicDashboard() {
             </div>
 
         </main>
+        
+        {/* INLINE CSS FOR DROPDOWN */}
+        <style>{`
+            .custom-dropdown-menu {
+                position: absolute;
+                top: calc(100% + 4px);
+                left: 0;
+                width: 100%;
+                background: white;
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                z-index: 50;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+                overflow: hidden;
+            }
+            .custom-dropdown-item {
+                padding: 10px 16px;
+                cursor: pointer;
+                font-size: 0.85rem;
+                color: var(--text-mid);
+                font-weight: 500;
+                transition: all 0.15s;
+            }
+            .custom-dropdown-item:hover {
+                background: var(--surface-hover);
+                color: var(--primary);
+            }
+            .custom-dropdown-item.active {
+                background: var(--primary-glow);
+                color: var(--primary);
+                font-weight: 700;
+            }
+            .dropdown-input:focus {
+                box-shadow: 0 0 0 3px var(--primary-glow);
+            }
+        `}</style>
     </div>
   );
 }

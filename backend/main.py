@@ -8,7 +8,6 @@ DATABASE_URL = "postgresql://postgres.jrabvvtvgtcffvewjgoq:BITanimapao2026@aws-1
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
-
 app = FastAPI(title="BitHarvest API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
@@ -78,7 +77,6 @@ def get_unified_data():
             })
         return parsed_data
 
-# --- UPDATED SMART FORECAST LABELS ---
 def calculate_forecast(periods, values, future_steps=3):
     if len(periods) < 2: return [], []
     n = len(periods)
@@ -94,7 +92,6 @@ def calculate_forecast(periods, values, future_steps=3):
     last_period = periods[-1]
     forecast_labels = []
     
-    # Generates names like "2025 Q4 (Proj.)" instead of "+1 Qtr"
     if " Q" in last_period:
         try:
             yr_str, qtr_str = last_period.split(" Q")
@@ -119,7 +116,7 @@ def calculate_forecast(periods, values, future_steps=3):
     forecast_values = [max(0, slope * (n - 1 + i) + intercept) for i in range(1, future_steps + 1)]
     return forecast_labels, forecast_values
 
-def generate_insights(total_vol, group_split, top_regions, hist_vals, forecast_vals, total_farmers, selected_group, selected_commodity, location, top_crop_overall):
+def generate_insights(total_vol, group_split, top_regions, hist_vals, forecast_vals, total_farmers, commodity_search, location, top_crop_overall):
     insights = []
     
     if len(hist_vals) >= 2 and hist_vals[-2] > 0:
@@ -135,28 +132,12 @@ def generate_insights(total_vol, group_split, top_regions, hist_vals, forecast_v
         "Coconut": "Export & Senility: Production is threatened by aging trees. Coordinate with PCA for aggressive replanting.",
         "Abaca": "Global Fiber Export: Albay holds a strategic global advantage. Budget should target 'Bunchy Top' disease eradication.",
         "Cacao": "High-Margin Cash Crop: Excellent intercropping potential. Grants for fermentation boxes will significantly increase farmer ROI.",
-        "Squash": "Shelf-Life Advantage: Has a longer shelf-life than other fruiting veggies, making it highly viable for long-distance transport to NCR markets.",
-        "Tomato": "Perishability Risk: Highly vulnerable to transport damage. Establish cold-storage logistics or promote value-added processing.",
-        "Sweet Potato": "Climate Buffer: Highly resilient to heavy winds. Promote as a primary food security buffer during typhoon season.",
-        "Cassava": "Industrial Processing: High demand for animal feed. Requires strict soil nutrient management to prevent land depletion.",
-        "Pechay": "Weather Vulnerability: Extremely sensitive to heavy monsoon rains. Subsidize protective farming structures.",
-        "Eggplant": "Pest Management: Highly susceptible to Fruit and Shoot Borer (FSB). Introduce Integrated Pest Management (IPM) training."
+        "Squash": "Shelf-Life Advantage: Has a longer shelf-life than other fruiting veggies, making it highly viable for long-distance transport to NCR markets."
     }
 
-    group_intel = {
-        "Grains & Cereals": "Macro-Economic Pillar: Dictates regional inflation. Post-harvest mechanization is the highest priority for this group.",
-        "Fruiting Vegetables": "Market Volatility: Prone to 'boom and bust' pricing. Encourage staggered planting schedules among barangays.",
-        "Leafy Vegetables": "Fast Cash Cycle: Provides immediate income (30-45 days) but suffers high post-harvest loss. Improve farm-to-market roads.",
-        "Root & Tuber Crops": "Disaster Resilience: The ultimate typhoon-proof calorie source. Best candidates for LGU emergency agriculture programs.",
-        "Legumes & Pulses": "Soil Regeneration: Naturally fixes nitrogen in the soil. Mandate crop rotation with this group to rehabilitate degraded fields."
-    }
-
-    if selected_commodity != "All Commodities":
-        if selected_commodity in crop_intel: insights.append(f"🌱 {selected_commodity} Strategy: {crop_intel[selected_commodity]}")
-        else: insights.append(f"🌱 {selected_commodity} Strategy: Monitor local market absorption rates to ensure farmers receive profitable farmgate prices.")
-    elif selected_group != "All Groups":
-        if selected_group in group_intel: insights.append(f"📋 {selected_group} Policy: {group_intel[selected_group]}")
-        if top_crop_overall and top_crop_overall != "N/A": insights.append(f"👑 Group Leader: {top_crop_overall} dominates this category.")
+    if commodity_search and commodity_search != "All Commodities":
+        if commodity_search in crop_intel: insights.append(f"🌱 {commodity_search} Strategy: {crop_intel[commodity_search]}")
+        else: insights.append(f"🌱 Strategy: Monitor local market absorption rates to ensure farmers receive profitable farmgate prices.")
     else:
         if top_crop_overall and top_crop_overall != "N/A":
             if top_crop_overall in crop_intel: insights.append(f"👑 Provincial Anchor ({top_crop_overall}): {crop_intel[top_crop_overall]}")
@@ -187,8 +168,9 @@ def get_filters():
         
     return {"locations": locations, "years": years, "quarters": quarters, "groups": groups, "groupedCommodities": grouped_commodities}
 
+# UPDATED: Replaced group and commodity with commoditySearch
 @app.get("/api/dashboard-data")
-def get_dashboard_data(location: str = "All Locations", year: str = "All Years", quarter: str = "All Quarters", group: str = "All Groups", commodity: str = "All Commodities"):
+def get_dashboard_data(location: str = "All Locations", year: str = "All Years", quarter: str = "All Quarters", commoditySearch: str = ""):
     all_data = get_unified_data()
     
     filtered_data = [
@@ -196,8 +178,7 @@ def get_dashboard_data(location: str = "All Locations", year: str = "All Years",
         if (location == "All Locations" or d["municipality"] == location) 
         and (year == "All Years" or d["year"] == year) 
         and (quarter == "All Quarters" or d["quarter"] == quarter) 
-        and (group == "All Groups" or d["crop_group"] == group)
-        and (commodity == "All Commodities" or d["commodity"] == commodity)
+        and (commoditySearch == "" or commoditySearch.lower() in d["commodity"].lower())
     ]
     
     total_volume = sum(d["production"] for d in filtered_data)
@@ -216,20 +197,20 @@ def get_dashboard_data(location: str = "All Locations", year: str = "All Years",
     top_comms = dict(sorted(raw_comm.items(), key=lambda x: x[1], reverse=True)[:10])
     top_farmers = dict(sorted(farm_split.items(), key=lambda x: x[1], reverse=True)[:10])
 
-    regional_comp = [d for d in all_data if (year == "All Years" or d["year"] == year) and (quarter == "All Quarters" or d["quarter"] == quarter) and (group == "All Groups" or d["crop_group"] == group) and (commodity == "All Commodities" or d["commodity"] == commodity)]
+    # Ensure regional comp handles the search term
+    regional_comp = [d for d in all_data if (year == "All Years" or d["year"] == year) and (quarter == "All Quarters" or d["quarter"] == quarter) and (commoditySearch == "" or commoditySearch.lower() in d["commodity"].lower())]
     region_split = defaultdict(float)
-    for d in regional_comp: region_split[d["municipality"]] += d["production"]
+    region_farmers = defaultdict(int)
+    
+    for d in regional_comp: 
+        region_split[d["municipality"]] += d["production"]
+        region_farmers[d["municipality"]] += d["farmers"]
+        
     top_regions = sorted(region_split.items(), key=lambda x: x[1], reverse=True)[:5]
     top_cities_list = [x[0] for x in top_regions]
 
-    stacked_city_data = {city: defaultdict(float) for city in top_cities_list}
-    for d in regional_comp:
-        if d["municipality"] in top_cities_list:
-            stacked_city_data[d["municipality"]][d["crop_group"]] += d["production"]
-
-    # --- THE FIX: Trend Logic ignores 'year' and 'quarter' to always show the full chronological line ---
     trend_split = defaultdict(float)
-    for d in [x for x in all_data if (location == "All Locations" or x["municipality"] == location) and (group == "All Groups" or x["crop_group"] == group) and (commodity == "All Commodities" or x["commodity"] == commodity)]:
+    for d in [x for x in all_data if (location == "All Locations" or x["municipality"] == location) and (commoditySearch == "" or commoditySearch.lower() in x["commodity"].lower())]:
         if d["period"] != "Unknown": trend_split[d["period"]] += d["production"]
     
     sorted_periods = sorted(trend_split.keys())
@@ -258,11 +239,11 @@ def get_dashboard_data(location: str = "All Locations", year: str = "All Years",
         "farmerSplit": top_farmers,
         "regionalLabels": top_cities_list,
         "regionalProduction": [round(x[1], 2) for x in top_regions],
-        "stackedCityData": {k: dict(v) for k, v in stacked_city_data.items()},
+        "regionalFarmers": [region_farmers[city] for city in top_cities_list], # ADDED THIS FOR NEW CHART
         "historicalTrendLabels": sorted_periods,
         "historicalTrendData": [round(v, 2) for v in hist_vals],
         "forecastLabels": f_labels,
         "forecastData": [round(v, 2) for v in f_vals],
         "topProducersList": [{"municipality": x[0], "production": round(x[1], 2)} for x in top_regions],
-        "aiInsights": generate_insights(total_volume, group_split, top_regions, hist_vals, f_vals, total_farmers, group, commodity, location, top_crop)
+        "aiInsights": generate_insights(total_volume, group_split, top_regions, hist_vals, f_vals, total_farmers, commoditySearch, location, top_crop)
     }
