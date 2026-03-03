@@ -10,9 +10,12 @@ function Login() {
     e.preventDefault();
     // TEMPORARY: Skipping backend validation for the APAO presentation
     console.log("Bypassing login for presentation purposes...");
-    
-    // Redirect straight to the new SPA encoder dashboard layout
     navigate('/encoder'); 
+  };
+
+  const handleAdminLogin = () => {
+    // TEMPORARY: Direct admin access for testing
+    navigate('/admin');
   };
 
   return (
@@ -66,6 +69,32 @@ function Login() {
             Secure Sign In
           </button>
         </form>
+
+        {/* Divider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '1.5rem 0 0' }}>
+          <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }} />
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>Testing</span>
+          <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }} />
+        </div>
+
+        {/* Admin shortcut button */}
+        <button
+          onClick={handleAdminLogin}
+          style={{
+            marginTop: '1rem', width: '100%', padding: '0.8rem 1rem',
+            borderRadius: '0.5rem', border: '1.5px dashed #B4C6DC',
+            background: '#F0F4FA', color: '#1E3A5F',
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            transition: 'all 0.2s',
+          }}
+          onMouseOver={e => (e.currentTarget.style.background = '#E8EEF7')}
+          onMouseOut={e => (e.currentTarget.style.background = '#F0F4FA')}
+        >
+          <i className="fa-solid fa-shield-halved" />
+          Access Admin Dashboard (Test)
+        </button>
 
       </div>
     </div>
