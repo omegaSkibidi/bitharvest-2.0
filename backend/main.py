@@ -1,24 +1,37 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 from collections import defaultdict
-from dotenv import load_dotenv
 
 # --- DATABASE CONNECTION ---
-# Your exact Supabase URL with the '@' in the password safely encoded as '%40'
-DATABASE_URL = "postgresql://postgres.jrabvvtvgtcffvewjgoq:BITanimapao2026@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
+DATABASE_URL = "postgresql://postgres:cdpogi@localhost:5432/bitharvest"
 
-# Add pool_pre_ping to keep the cloud connection stable
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 app = FastAPI(title="BitHarvest API")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
-)
+# --- CROP CATEGORIZATION ENGINE ---
+CROP_GROUPS = {
+    "Grains & Cereals": ["Corn", "Rice", "Sweet Corn", "White Corn"],
+    "Industrial Crops": ["Abaca", "Coconut", "Cacao"],
+    "Fruiting Vegetables": ["Squash", "Ampalaya", "Okra", "Eggplant", "Tomato", "Hot Pepper", "Cucumber", "Patola", "Chayote", "Upo", "Gourd", "Watermelon", "Melon", "Papaya"],
+    "Leafy Vegetables": ["Pechay", "Cabbage", "Upland Kangkong", "Green Onion", "Spring Onion", "Collard", "Onion Leak", "Mustasa", "Lettuce", "Lemon Grass"],
+    "Legumes & Pulses": ["Pole Sitao", "Peanut", "Winged Bean", "Beans", "Baguio Beans", "Mungbean", "Cowpea", "String Beans", "Snap Bean", "Percoles", "Patani"],
+    "Root & Tuber Crops": ["Sweet Potato", "Gabi", "Cassava", "Radish", "Yam", "Ginger", "Onion", "Garlic", "Singkamas", "Camiguing"],
+    "Fruits": ["Banana", "Dragon Fruit", "Kalamansi"]
+}
+
+def get_crop_group(commodity_name):
+    for group, crops in CROP_GROUPS.items():
+        if commodity_name.lower() in [c.lower() for c in crops]:
+            return group
+    return "Other Crops"
 
 def standardize_mun(mun):
+    if not mun: return "Unknown"
     m = mun.title().strip()
     if "Ligao" in m: return "Ligao City"
     if "Tabaco" in m: return "Tabaco City"
@@ -29,182 +42,228 @@ def standardize_mun(mun):
 
 def get_unified_data():
     query = """
-        SELECT TRIM(c.municipality) as municipality, SUBSTRING(d.dataset_name FROM '[0-9]{4}') as year, 'Corn' as commodity, COALESCE(c.total_production, 0) as production FROM data_corn_harvesting c JOIN datasets d ON c.dataset_id = d.id WHERE c.municipality NOT ILIKE 'total'
+        SELECT TRIM(c.municipality) as municipality, 
+               COALESCE(SUBSTRING(d.dataset_name FROM '[0-9]{4}'), 'Unknown') as year,
+               COALESCE(SUBSTRING(d.dataset_name FROM 'Q[1-4]'), 'Annual') as quarter,
+               'Corn' as commodity, COALESCE(c.total_production, 0) as production, COALESCE(c.total_farmers, 0) as farmers 
+        FROM data_corn_harvesting c JOIN datasets d ON c.dataset_id = d.id WHERE c.municipality NOT ILIKE 'total'
         UNION ALL
-        SELECT TRIM(r.municipality) as municipality, SUBSTRING(d.dataset_name FROM '[0-9]{4}') as year, 'Rice' as commodity, COALESCE(r.production, 0) as production FROM data_rice r JOIN datasets d ON r.dataset_id = d.id WHERE r.municipality NOT ILIKE 'total'
+        SELECT TRIM(r.municipality), COALESCE(SUBSTRING(d.dataset_name FROM '[0-9]{4}'), 'Unknown'), COALESCE(SUBSTRING(d.dataset_name FROM 'Q[1-4]'), 'Annual'), 'Rice', COALESCE(r.production, 0), COALESCE(r.area_harvested, 0) FROM data_rice r JOIN datasets d ON r.dataset_id = d.id WHERE r.municipality NOT ILIKE 'total'
         UNION ALL
-        SELECT TRIM(co.municipality) as municipality, SUBSTRING(d.dataset_name FROM '[0-9]{4}') as year, 'Coconut' as commodity, COALESCE(co.copra_mt, 0) as production FROM data_coconut co JOIN datasets d ON co.dataset_id = d.id WHERE co.municipality NOT ILIKE 'total'
+        SELECT TRIM(co.municipality), COALESCE(SUBSTRING(d.dataset_name FROM '[0-9]{4}'), 'Unknown'), COALESCE(SUBSTRING(d.dataset_name FROM 'Q[1-4]'), 'Annual'), 'Coconut', COALESCE(co.copra_mt, 0), COALESCE(co.no_of_farmers, 0) FROM data_coconut co JOIN datasets d ON co.dataset_id = d.id WHERE co.municipality NOT ILIKE 'total'
         UNION ALL
-        SELECT TRIM(a.municipality) as municipality, SUBSTRING(d.dataset_name FROM '[0-9]{4}') as year, 'Abaca' as commodity, COALESCE(a.annual_prod_kg, 0) / 1000.0 as production FROM data_abaca a JOIN datasets d ON a.dataset_id = d.id WHERE a.municipality NOT ILIKE 'total'
+        SELECT TRIM(a.municipality), COALESCE(SUBSTRING(d.dataset_name FROM '[0-9]{4}'), 'Unknown'), COALESCE(SUBSTRING(d.dataset_name FROM 'Q[1-4]'), 'Annual'), 'Abaca', COALESCE(a.annual_prod_kg, 0) / 1000.0, COALESCE(a.num_farmers, 0) FROM data_abaca a JOIN datasets d ON a.dataset_id = d.id WHERE a.municipality NOT ILIKE 'total'
         UNION ALL
-        SELECT TRIM(ca.municipality) as municipality, SUBSTRING(d.dataset_name FROM '[0-9]{4}') as year, 'Cacao' as commodity, COALESCE(ca.est_yield, 0) as production FROM data_cacao ca JOIN datasets d ON ca.dataset_id = d.id WHERE ca.municipality NOT ILIKE 'total'
+        SELECT TRIM(ca.municipality), COALESCE(SUBSTRING(d.dataset_name FROM '[0-9]{4}'), 'Unknown'), COALESCE(SUBSTRING(d.dataset_name FROM 'Q[1-4]'), 'Annual'), 'Cacao', COALESCE(ca.est_yield, 0), COALESCE(ca.num_farmers, 0) FROM data_cacao ca JOIN datasets d ON ca.dataset_id = d.id WHERE ca.municipality NOT ILIKE 'total'
+        UNION ALL
+        SELECT TRIM(h.municipality), COALESCE(SUBSTRING(d.dataset_name FROM '[0-9]{4}'), 'Unknown'), COALESCE(SUBSTRING(d.dataset_name FROM 'Q[1-4]'), 'Annual'), INITCAP(REPLACE(d.commodity, '_', ' ')), COALESCE(h.quarterly_production, 0), COALESCE(h.num_farmers, 0) FROM data_hvc_production h JOIN datasets d ON h.dataset_id = d.id WHERE h.municipality NOT ILIKE 'total'
     """
     with engine.connect() as conn:
         result = conn.execute(text(query)).fetchall()
-        return [{"municipality": standardize_mun(row[0]) if row[0] else "Unknown", "year": row[1] if row[1] else "Unknown", "commodity": row[2], "production": float(row[3])} for row in result]
+        parsed_data = []
+        for row in result:
+            yr = row[1]
+            qtr = row[2]
+            comm = row[3]
+            chronological_period = f"{yr} {qtr}" if qtr != "Annual" else yr
+            
+            parsed_data.append({
+                "municipality": standardize_mun(row[0]),
+                "year": yr,
+                "quarter": qtr,
+                "period": chronological_period,
+                "commodity": comm,
+                "crop_group": get_crop_group(comm),
+                "production": float(row[4]),
+                "farmers": int(row[5])
+            })
+        return parsed_data
 
-# --- 1. LINEAR REGRESSION MATH ---
-def calculate_forecast(years, values, future_steps=2):
-    if len(years) < 2: return [], []
-    n = len(years)
-    sum_x = sum(years)
-    sum_y = sum(values)
-    sum_x2 = sum(x*x for x in years)
-    sum_xy = sum(x*y for x, y in zip(years, values))
+# --- UPDATED SMART FORECAST LABELS ---
+def calculate_forecast(periods, values, future_steps=3):
+    if len(periods) < 2: return [], []
+    n = len(periods)
+    x = list(range(n))
+    sum_x, sum_y = sum(x), sum(values)
+    sum_x2 = sum(i*i for i in x)
+    sum_xy = sum(i*y for i, y in zip(x, values))
     
     denominator = (n * sum_x2 - sum_x**2)
     slope = (n * sum_xy - sum_x * sum_y) / denominator if denominator != 0 else 0
     intercept = (sum_y - slope * sum_x) / n
     
-    last_year = max(years)
-    forecast_years = [str(last_year + i) for i in range(1, future_steps + 1)]
-    forecast_values = [max(0, slope * int(y) + intercept) for y in forecast_years]
+    last_period = periods[-1]
+    forecast_labels = []
     
-    return forecast_years, forecast_values
+    # Generates names like "2025 Q4 (Proj.)" instead of "+1 Qtr"
+    if " Q" in last_period:
+        try:
+            yr_str, qtr_str = last_period.split(" Q")
+            yr, qtr = int(yr_str), int(qtr_str)
+            for _ in range(future_steps):
+                qtr += 1
+                if qtr > 4:
+                    qtr = 1
+                    yr += 1
+                forecast_labels.append(f"{yr} Q{qtr} (Proj.)")
+        except:
+            forecast_labels = [f"Proj. +{i} Qtr" for i in range(1, future_steps + 1)]
+    else:
+        try:
+            yr = int(last_period)
+            for _ in range(future_steps):
+                yr += 1
+                forecast_labels.append(f"{yr} (Proj.)")
+        except:
+            forecast_labels = [f"Proj. +{i}" for i in range(1, future_steps + 1)]
 
-# --- 2. EXECUTIVE INSIGHT GENERATOR ---
-# Notice we added 'selected_location' to the end of the parameters
-def generate_insights(total_vol, top_regions, commodity_split, historical_vals, forecast_vals, years, farmer_split, selected_commodity, selected_location):
+    forecast_values = [max(0, slope * (n - 1 + i) + intercept) for i in range(1, future_steps + 1)]
+    return forecast_labels, forecast_values
+
+def generate_insights(total_vol, group_split, top_regions, hist_vals, forecast_vals, total_farmers, selected_group, selected_commodity, location, top_crop_overall):
     insights = []
     
-    # --- SECTION A: MACRO (Province) vs MICRO (Municipal) INSIGHTS ---
-    if selected_location == "All Locations":
-        # Global/Provincial Insights
-        if selected_commodity == "All Commodities":
-            if forecast_vals and historical_vals and forecast_vals[-1] > historical_vals[-1]:
-                growth_pct = ((forecast_vals[-1] - historical_vals[-1]) / historical_vals[-1]) * 100
-                insights.append(f"📈 Macro Projection: Statistical linear models forecast a {growth_pct:.1f}% net yield expansion across the provincial sector over the next 24 months.")
-            
-            if commodity_split:
-                top_comm = max(commodity_split, key=commodity_split.get)
-                comm_pct = (commodity_split[top_comm] / total_vol) * 100 if total_vol > 0 else 0
-                if comm_pct > 50:
-                    insights.append(f"⚠️ Economic Vulnerability: Provincial output is heavily concentrated in {top_comm} ({comm_pct:.1f}%). Policy interventions supporting crop diversification are recommended.")
-                else:
-                    insights.append(f"⚖️ Portfolio Stability: The district currently exhibits a diversified agricultural portfolio, ensuring economic resilience.")
-    else:
-        # Localized/Municipal Insights (When a specific city is clicked)
-        if forecast_vals and historical_vals and forecast_vals[-1] > historical_vals[-1]:
-            growth_pct = ((forecast_vals[-1] - historical_vals[-1]) / historical_vals[-1]) * 100
-            crop_text = selected_commodity if selected_commodity != "All Commodities" else "agricultural"
-            insights.append(f"📈 Localized Growth: Trajectory models predict a {growth_pct:.1f}% growth in {crop_text} yield specifically for the municipality of {selected_location}.")
-        elif forecast_vals and historical_vals:
-            insights.append(f"📉 Attention Needed: Forecasts indicate a potential plateau or dip in {selected_location}'s output. Targeted LGU interventions or budget reviews may be required.")
+    if len(hist_vals) >= 2 and hist_vals[-2] > 0:
+        growth = ((hist_vals[-1] - hist_vals[-2]) / hist_vals[-2]) * 100
+        if growth >= 5:
+            insights.append(f"📈 Yield Expansion: Recent harvests grew by {growth:.1f}%. Consider establishing localized trading posts or cold storage to prevent market oversupply.")
+        elif growth <= -5:
+            insights.append(f"📉 Supply Warning: Volume contracted by {abs(growth):.1f}%. Immediate review of recent weather impacts, pest outbreaks, or fertilizer shortages is advised.")
 
-        if commodity_split and selected_commodity == "All Commodities":
-            top_comm = max(commodity_split, key=commodity_split.get)
-            comm_pct = (commodity_split[top_comm] / total_vol) * 100 if total_vol > 0 else 0
-            insights.append(f"🎯 Municipal Focus: {top_comm} is the primary economic driver for {selected_location}, representing {comm_pct:.1f}% of its local volume.")
-
-    # --- SECTION B: COMMODITY-SPECIFIC POLICY BRIEFS ---
-    commodity_facts = {
-        "Rice": [
-            "🍚 Food Security Mandate: Rice dictates the foundational stability of the local labor force. Priority must be given to modernizing NIA irrigation schedules.",
-            "💧 Climate Vulnerability: Historical yields indicate high susceptibility to El Niño/La Niña cycles. Drought-resistant seed subsidies should be reviewed."
-        ],
-        "Corn": [
-            "🌽 Agri-Economic Impact: Yellow corn production is the primary catalyst for the regional poultry and livestock supply chains.",
-            "☀️ Infrastructure Need: High post-harvest losses remain a threat. CAPEX allocation for localized solar drying facilities is strongly advised."
-        ],
-        "Coconut": [
-            "🥥 Export Reliance: Copra remains a vital export-oriented asset. However, market volatility directly impacts household income stability for thousands of farmers.",
-            "⏳ Resource Depletion: Current data trends underscore an urgent need for government-sponsored replanting initiatives to replace senile trees."
-        ],
-        "Abaca": [
-            "🧶 Strategic Export: Albay retains a competitive global advantage in Abaca. Budgetary focus must prioritize the distribution of Bunchy Top disease-resistant cultivars.",
-            "🎨 Micro-Economy Catalyst: Raw fiber production directly sustains the provincial cottage industry and artisanal handicraft sectors."
-        ],
-        "Cacao": [
-            "🍫 High-Value Potential: Cacao represents an emerging, high-margin market. Strategic grants for local value-added processing (e.g., Tablea manufacturing) will increase GDP.",
-            "🌱 Land Optimization: Cacao demonstrates excellent viability for intercropping with Coconut, offering a dual-income stream for smallholder farmers."
-        ]
+    crop_intel = {
+        "Rice": "Food Security Mandate: Highly sensitive to El Niño. Prioritize NIA irrigation scheduling and drought-resistant seed subsidies.",
+        "Corn": "Livestock Catalyst: Primary driver for local poultry feeds. CAPEX for solar drying facilities is critical to reduce post-harvest moisture loss.",
+        "Coconut": "Export & Senility: Production is threatened by aging trees. Coordinate with PCA for aggressive replanting.",
+        "Abaca": "Global Fiber Export: Albay holds a strategic global advantage. Budget should target 'Bunchy Top' disease eradication.",
+        "Cacao": "High-Margin Cash Crop: Excellent intercropping potential. Grants for fermentation boxes will significantly increase farmer ROI.",
+        "Squash": "Shelf-Life Advantage: Has a longer shelf-life than other fruiting veggies, making it highly viable for long-distance transport to NCR markets.",
+        "Tomato": "Perishability Risk: Highly vulnerable to transport damage. Establish cold-storage logistics or promote value-added processing.",
+        "Sweet Potato": "Climate Buffer: Highly resilient to heavy winds. Promote as a primary food security buffer during typhoon season.",
+        "Cassava": "Industrial Processing: High demand for animal feed. Requires strict soil nutrient management to prevent land depletion.",
+        "Pechay": "Weather Vulnerability: Extremely sensitive to heavy monsoon rains. Subsidize protective farming structures.",
+        "Eggplant": "Pest Management: Highly susceptible to Fruit and Shoot Borer (FSB). Introduce Integrated Pest Management (IPM) training."
     }
 
-    if selected_commodity in commodity_facts:
-        insights.extend(commodity_facts[selected_commodity])
+    group_intel = {
+        "Grains & Cereals": "Macro-Economic Pillar: Dictates regional inflation. Post-harvest mechanization is the highest priority for this group.",
+        "Fruiting Vegetables": "Market Volatility: Prone to 'boom and bust' pricing. Encourage staggered planting schedules among barangays.",
+        "Leafy Vegetables": "Fast Cash Cycle: Provides immediate income (30-45 days) but suffers high post-harvest loss. Improve farm-to-market roads.",
+        "Root & Tuber Crops": "Disaster Resilience: The ultimate typhoon-proof calorie source. Best candidates for LGU emergency agriculture programs.",
+        "Legumes & Pulses": "Soil Regeneration: Naturally fixes nitrogen in the soil. Mandate crop rotation with this group to rehabilitate degraded fields."
+    }
 
-    # --- SECTION C: PERFORMANCE METRICS ---
-    # We hide the "Strategic Hub" insight if they are already looking at a specific city!
-    if selected_location == "All Locations" and top_regions:
-        insights.append(f"🏆 Strategic Hub: {top_regions[0][0]} serves as the primary engine for this sector, representing the highest concentration of output.")
-        
-    total_farmers = sum(farmer_split.values())
+    if selected_commodity != "All Commodities":
+        if selected_commodity in crop_intel: insights.append(f"🌱 {selected_commodity} Strategy: {crop_intel[selected_commodity]}")
+        else: insights.append(f"🌱 {selected_commodity} Strategy: Monitor local market absorption rates to ensure farmers receive profitable farmgate prices.")
+    elif selected_group != "All Groups":
+        if selected_group in group_intel: insights.append(f"📋 {selected_group} Policy: {group_intel[selected_group]}")
+        if top_crop_overall and top_crop_overall != "N/A": insights.append(f"👑 Group Leader: {top_crop_overall} dominates this category.")
+    else:
+        if top_crop_overall and top_crop_overall != "N/A":
+            if top_crop_overall in crop_intel: insights.append(f"👑 Provincial Anchor ({top_crop_overall}): {crop_intel[top_crop_overall]}")
+
     if total_farmers > 0 and total_vol > 0:
         efficiency = total_vol / total_farmers
-        # The text changes depending on if we are looking at a city or the province
-        scope = f"in {selected_location}" if selected_location != "All Locations" else "across the province"
-        insights.append(f"🧑‍🌾 Workforce Efficiency: The active agricultural labor force {scope} is currently yielding a per capita output of {efficiency:.2f} Metric Tons.")
+        if efficiency > 15: insights.append(f"⚙️ Advanced Mechanization: Labor efficiency is exceptionally high ({efficiency:.1f} MT/farmer).")
+        elif efficiency < 5: insights.append(f"🧑‍🌾 Labor Constraint: Low yield per capita ({efficiency:.1f} MT/farmer). High priority for agricultural extension training.")
+
+    if location != "All Locations":
+        insights.append(f"📍 Municipal Action Plan ({location}): Align LGU budget with the dominant crop to capture more economic value locally.")
 
     return insights
 
 @app.get("/api/filters")
 def get_filters():
     data = get_unified_data()
-    return {
-        "locations": ["All Locations"] + sorted(list(set(d["municipality"] for d in data))),
-        "years": ["All Years"] + sorted(list(set(d["year"] for d in data if d["year"] != "Unknown")), reverse=True),
-        "commodities": ["All Commodities"] + sorted(list(set(d["commodity"] for d in data)))
-    }
+    locations = ["All Locations"] + sorted(list(set(d["municipality"] for d in data)))
+    years = ["All Years"] + sorted(list(set(d["year"] for d in data if d["year"] != "Unknown")), reverse=True)
+    quarters = ["All Quarters"] + sorted(list(set(d["quarter"] for d in data if d["quarter"] != "Unknown")))
+    groups = ["All Groups"] + sorted(list(set(d["crop_group"] for d in data)))
+    
+    grouped_commodities = defaultdict(list)
+    for d in data:
+        if d["commodity"] not in grouped_commodities[d["crop_group"]]:
+            grouped_commodities[d["crop_group"]].append(d["commodity"])
+    for k in grouped_commodities: grouped_commodities[k].sort()
+        
+    return {"locations": locations, "years": years, "quarters": quarters, "groups": groups, "groupedCommodities": grouped_commodities}
 
 @app.get("/api/dashboard-data")
-def get_dashboard_data(location: str = "All Locations", year: str = "All Years", commodity: str = "All Commodities"):
+def get_dashboard_data(location: str = "All Locations", year: str = "All Years", quarter: str = "All Quarters", group: str = "All Groups", commodity: str = "All Commodities"):
     all_data = get_unified_data()
     
-    # --- 1. MAIN FILTERED DATA (Respects ALL filters) ---
-    filtered_data = [d for d in all_data if (location == "All Locations" or d["municipality"] == location) and (year == "All Years" or d["year"] == year) and (commodity == "All Commodities" or d["commodity"] == commodity)]
-                     
+    filtered_data = [
+        d for d in all_data 
+        if (location == "All Locations" or d["municipality"] == location) 
+        and (year == "All Years" or d["year"] == year) 
+        and (quarter == "All Quarters" or d["quarter"] == quarter) 
+        and (group == "All Groups" or d["crop_group"] == group)
+        and (commodity == "All Commodities" or d["commodity"] == commodity)
+    ]
+    
     total_volume = sum(d["production"] for d in filtered_data)
     active_areas = len(set(d["municipality"] for d in filtered_data if d["production"] > 0))
+    total_farmers = sum(d["farmers"] for d in filtered_data)
     
-    commodity_split = defaultdict(float)
-    for d in filtered_data: commodity_split[d["commodity"]] += d["production"]
+    raw_comm = defaultdict(float)
+    group_split = defaultdict(float)
+    farm_split = defaultdict(int)
+    
+    for d in filtered_data: 
+        raw_comm[d["commodity"]] += d["production"]
+        group_split[d["crop_group"]] += d["production"]
+        farm_split[d["commodity"]] += d["farmers"]
         
-    with engine.connect() as conn:
-        f_corn = int(conn.execute(text(f"SELECT COALESCE(SUM(total_farmers), 0) FROM data_corn_harvesting WHERE municipality {'=' if location != 'All Locations' else '!='} '{location if location != 'All Locations' else 'total'}'")).scalar())
-        f_rice = int(conn.execute(text(f"SELECT COALESCE(SUM(area_harvested), 0) FROM data_rice WHERE municipality {'=' if location != 'All Locations' else '!='} '{location if location != 'All Locations' else 'total'}'")).scalar()) 
-        f_coco = int(conn.execute(text(f"SELECT COALESCE(SUM(no_of_farmers), 0) FROM data_coconut WHERE municipality {'=' if location != 'All Locations' else '!='} '{location if location != 'All Locations' else 'total'}'")).scalar())
-        f_abaca = int(conn.execute(text(f"SELECT COALESCE(SUM(num_farmers), 0) FROM data_abaca WHERE municipality {'=' if location != 'All Locations' else '!='} '{location if location != 'All Locations' else 'total'}'")).scalar())
-        f_cacao = int(conn.execute(text(f"SELECT COALESCE(SUM(num_farmers), 0) FROM data_cacao WHERE municipality {'=' if location != 'All Locations' else '!='} '{location if location != 'All Locations' else 'total'}'")).scalar())
-        farmer_split = {"Corn": f_corn, "Rice": f_rice, "Coconut": f_coco, "Abaca": f_abaca, "Cacao": f_cacao}
-        total_farmers = sum(farmer_split.values())
+    top_comms = dict(sorted(raw_comm.items(), key=lambda x: x[1], reverse=True)[:10])
+    top_farmers = dict(sorted(farm_split.items(), key=lambda x: x[1], reverse=True)[:10])
 
-    # --- 2. UPDATED: CONSTANT LEADERBOARD LOGIC ---
-    # We create a new dataset that ignores 'location' but keeps 'year' and 'commodity'
-    # This ensures the Top 5 cities always show up for comparison!
-    regional_comparison_data = [d for d in all_data if (year == "All Years" or d["year"] == year) and (commodity == "All Commodities" or d["commodity"] == commodity)]
-    
+    regional_comp = [d for d in all_data if (year == "All Years" or d["year"] == year) and (quarter == "All Quarters" or d["quarter"] == quarter) and (group == "All Groups" or d["crop_group"] == group) and (commodity == "All Commodities" or d["commodity"] == commodity)]
     region_split = defaultdict(float)
-    for d in regional_comparison_data: region_split[d["municipality"]] += d["production"]
-    
-    # Sort them highest to lowest and grab the top 5
+    for d in regional_comp: region_split[d["municipality"]] += d["production"]
     top_regions = sorted(region_split.items(), key=lambda x: x[1], reverse=True)[:5]
-    top_producers_list = [{"municipality": item[0], "production": round(item[1], 2)} for item in top_regions]
-    
-    # PREDICTION
-    trend_split = defaultdict(float)
-    trend_data_source = [d for d in all_data if (location == "All Locations" or d["municipality"] == location) and (commodity == "All Commodities" or d["commodity"] == commodity)]
-    for d in trend_data_source:
-        if d["year"] != "Unknown": trend_split[int(d["year"])] += d["production"]
-            
-    sorted_years = sorted(trend_split.keys())
-    historical_values = [trend_split[y] for y in sorted_years]
-    forecast_years, forecast_values = calculate_forecast(sorted_years, historical_values)
+    top_cities_list = [x[0] for x in top_regions]
 
-    ai_insights = generate_insights(total_volume, top_regions, commodity_split, historical_values, forecast_values, sorted_years, farmer_split, commodity, location)
+    stacked_city_data = {city: defaultdict(float) for city in top_cities_list}
+    for d in regional_comp:
+        if d["municipality"] in top_cities_list:
+            stacked_city_data[d["municipality"]][d["crop_group"]] += d["production"]
+
+    # --- THE FIX: Trend Logic ignores 'year' and 'quarter' to always show the full chronological line ---
+    trend_split = defaultdict(float)
+    for d in [x for x in all_data if (location == "All Locations" or x["municipality"] == location) and (group == "All Groups" or x["crop_group"] == group) and (commodity == "All Commodities" or x["commodity"] == commodity)]:
+        if d["period"] != "Unknown": trend_split[d["period"]] += d["production"]
+    
+    sorted_periods = sorted(trend_split.keys())
+    hist_vals = [trend_split[p] for p in sorted_periods]
+    f_labels, f_vals = calculate_forecast(sorted_periods, hist_vals, future_steps=3)
+
+    labor_efficiency = round(total_volume / total_farmers, 2) if total_farmers > 0 else 0
+    top_crop = max(raw_comm, key=raw_comm.get) if raw_comm else "N/A"
+    top_city = top_regions[0][0] if top_regions else "N/A"
+    qoq_growth = 0
+    if len(hist_vals) >= 2 and hist_vals[-2] > 0:
+        qoq_growth = round(((hist_vals[-1] - hist_vals[-2]) / hist_vals[-2]) * 100, 1)
 
     return {
-        "kpis": {"totalVolume": round(total_volume, 2), "topRegion": top_regions[0][0] if top_regions else "N/A", "activeAreas": active_areas, "totalFarmers": total_farmers},
-        "commoditySplit": {k: round(v, 2) for k, v in commodity_split.items()},
-        "farmerSplit": farmer_split,
-        "regionalLabels": [x[0] for x in top_regions],
+        "kpis": {
+            "totalVolume": round(total_volume, 2), 
+            "activeAreas": active_areas, 
+            "totalFarmers": total_farmers,
+            "laborEfficiency": labor_efficiency,
+            "topCrop": top_crop,
+            "topCity": top_city,
+            "qoqGrowth": qoq_growth
+        },
+        "commoditySplit": {k: round(v, 2) for k, v in top_comms.items()},
+        "groupSplit": {k: round(v, 2) for k, v in sorted(group_split.items(), key=lambda x: x[1], reverse=True)},
+        "farmerSplit": top_farmers,
+        "regionalLabels": top_cities_list,
         "regionalProduction": [round(x[1], 2) for x in top_regions],
-        "historicalTrendLabels": [str(y) for y in sorted_years],
-        "historicalTrendData": [round(v, 2) for v in historical_values],
-        "forecastLabels": forecast_years,
-        "forecastData": [round(v, 2) for v in forecast_values],
-        
-        # New key for the modal!
-        "topProducersList": top_producers_list, 
-        
-        "aiInsights": ai_insights
+        "stackedCityData": {k: dict(v) for k, v in stacked_city_data.items()},
+        "historicalTrendLabels": sorted_periods,
+        "historicalTrendData": [round(v, 2) for v in hist_vals],
+        "forecastLabels": f_labels,
+        "forecastData": [round(v, 2) for v in f_vals],
+        "topProducersList": [{"municipality": x[0], "production": round(x[1], 2)} for x in top_regions],
+        "aiInsights": generate_insights(total_volume, group_split, top_regions, hist_vals, f_vals, total_farmers, group, commodity, location, top_crop)
     }

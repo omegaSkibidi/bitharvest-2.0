@@ -9,9 +9,10 @@ function UserDashboard() {
   // 1. Define your navigation links to calculate the sliding animation
   const navItems = [
     { path: '/encoder', icon: 'fa-border-all', label: 'Dashboard', end: true },
+    { path: '/encoder/analytics', icon: 'fa-chart-line', label: 'Agricultural Analytics' },
     { path: '/encoder/reports', icon: 'fa-file-lines', label: 'Crop Reports', badge: 5 },
-    { path: '/encoder/submissions', icon: 'fa-list-check', label: 'My Submissions' },
-    { path: '/encoder/analytics', icon: 'fa-chart-line', label: 'Analytics' }
+    { path: '/encoder/submissions', icon: 'fa-list-check', label: 'My Submissions' }
+    
   ];
 
   // 2. Find which index is currently active based on the URL
