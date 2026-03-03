@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import ReactDOM from 'react-dom'; // Added for the Modal Portal
+import ReactDOM from 'react-dom';
 // Ensure your CSS file is imported correctly based on your folder structure
 import '../App.css'; 
 
@@ -205,7 +204,6 @@ export default function Analytics() {
   if (!apiData) return null; 
 
   const topCrops = Object.keys(apiData.commoditySplit).slice(0, 4);
-  const activeDataLabel = selectedCommodity !== "All Commodities" ? `Search: "${selectedCommodity}"` : "All Categories";
 
   return (
     <div className="analytics-internal-view" style={{ animation: 'fadeIn 0.5s ease' }}>
