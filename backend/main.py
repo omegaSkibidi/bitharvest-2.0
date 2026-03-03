@@ -4,11 +4,10 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from collections import defaultdict
 
-# --- DATABASE CONNECTION ---
-DATABASE_URL = "postgresql://postgres:cdpogi@localhost:5432/bitharvest"
+DATABASE_URL = "postgresql://postgres.jrabvvtvgtcffvewjgoq:BITanimapao2026@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 app = FastAPI(title="BitHarvest API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
