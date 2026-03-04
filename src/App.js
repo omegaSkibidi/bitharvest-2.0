@@ -17,6 +17,7 @@ import AdminDashboard from './admin/AdminDashboard';
 import AdminOverview from './admin/AdminOverview';
 import ReportManagement from './admin/ReportManagement';
 import DataManagement from './admin/DataManagement';
+import TableCreation from './admin/TableCreation';
 
 
 import './App.css'; 
@@ -39,6 +40,7 @@ function App() {
   <Route index element={<AdminOverview />} />
   <Route path="reports" element={<ReportManagement />} />
   <Route path="data" element={<DataManagement />} />
+  <Route path="table-creation" element={<TableCreation />} />
 </Route>
 
       </Routes>

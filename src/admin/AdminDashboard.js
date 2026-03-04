@@ -10,6 +10,7 @@ export default function AdminDashboard() {
     { path: '/admin', icon: 'fa-border-all', label: 'Dashboard', end: true },
     { path: '/admin/reports', icon: 'fa-file-circle-check', label: 'Report Management', badge: 8 },
     { path: '/admin/data', icon: 'fa-database', label: 'Data Management' },
+    { path: '/admin/table-creation', icon: 'fa-table-list', label: 'Table Creation'}
   ];
 
   const activeIndex = navItems.findIndex(item =>
@@ -60,8 +61,6 @@ export default function AdminDashboard() {
 
         <div className="sidebar-divider" />
 
-        
-
         <div className="sidebar-profile">
           <div className="profile-card">
             <div className="profile-top">
@@ -84,7 +83,7 @@ export default function AdminDashboard() {
       </aside>
 
       {/* ─── DYNAMIC MAIN CONTENT ─── */}
-      <main className="main-content" style={{ overflowY: 'auto', height: '100vh' }}>
+      <main className="main-content">
         <div key={location.pathname} className="page-transition-wrapper">
           <Outlet />
         </div>

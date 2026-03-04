@@ -8,19 +8,17 @@ function Login() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    // TEMPORARY: Skipping backend validation for the APAO presentation
     console.log("Bypassing login for presentation purposes...");
     navigate('/encoder'); 
   };
 
   const handleAdminLogin = () => {
-    // TEMPORARY: Direct admin access for testing
     navigate('/admin');
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-color)' }}>
-      <div style={{ backgroundColor: 'var(--container-bg)', padding: '3rem', borderRadius: '1.5rem', boxShadow: '0 10px 25px rgba(61, 86, 42, 0.1)', width: '100%', maxWidth: '420px', border: '1px solid var(--border-color)' }}>
+    <div className="public-dashboard" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-color)' }}>
+      <div style={{ backgroundColor: 'var(--container-bg)', padding: '3rem', borderRadius: '1.5rem', boxShadow: '0 10px 25px rgba(1, 147, 8, 0.1)', width: '100%', maxWidth: '420px', border: '1px solid var(--border-color)' }}>
         
         {/* Back to Dashboard Button */}
         <button 
@@ -32,10 +30,10 @@ function Login() {
 
         {/* Logo & Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'linear-gradient(135deg, var(--secondary), var(--complementary))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', boxShadow: '0 8px 16px rgba(95, 120, 61, 0.2)' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'linear-gradient(135deg, var(--header-bg), var(--primary))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', boxShadow: '0 8px 16px rgba(1, 147, 8, 0.2)' }}>
             <i className="fa-solid fa-leaf" style={{ color: 'var(--container-bg)', fontSize: '1.8rem' }}></i>
           </div>
-          <h2 style={{ color: 'var(--primary)', fontFamily: "'Outfit', sans-serif", fontSize: '1.8rem', marginBottom: '0.5rem' }}>APAO Secure Login</h2>
+          <h2 style={{ color: 'var(--header-bg)', fontFamily: "'Outfit', sans-serif", fontSize: '1.8rem', marginBottom: '0.5rem' }}>APAO Secure Login</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Authorized provincial office staff only.</p>
         </div>
 

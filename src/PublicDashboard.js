@@ -91,15 +91,19 @@ function PublicDashboard() {
               const production = apiData.regionalProduction[index];
               const radiusSize = Math.max(8, Math.min(30, (production / 5000) * 5));
 
-              L.circleMarker(coords, { radius: radiusSize, color: '#3D562A', fillColor: '#5F783D', fillOpacity: 0.7, weight: 2 
+              // ✅ Updated map marker colors to RM green palette
+              L.circleMarker(coords, { radius: radiusSize, color: '#019308', fillColor: '#02C937', fillOpacity: 0.7, weight: 2 
               }).addTo(mapInstance).bindPopup(`<strong>${municipality}</strong><br/>${production.toLocaleString()} MT`);
           });
       }
 
       if (Chart) {
-          Chart.defaults.color = '#4A5240';
+          // ✅ Updated default chart text color
+          Chart.defaults.color = '#5A7A60';
           Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
-          const customPalette = ['#3D562A', '#4E6A34', '#5F783D', '#758E4E', '#8F9A75', '#A5B08E', '#DCE3D0'];
+
+          // ✅ Updated custom palette to RM green shades
+          const customPalette = ['#019308', '#02C937', '#04A82E', '#3DBF5A', '#6FD48A', '#A3E8B4', '#C8E8CF'];
 
           // 1. Area Chart
           chartRefs.current.lineChart = new Chart(document.getElementById('lineChart').getContext('2d'), {
@@ -110,12 +114,14 @@ function PublicDashboard() {
                       {
                           label: 'Recorded Harvest (MT)',
                           data: [...apiData.historicalTrendData, ...Array(apiData.forecastLabels.length).fill(null)],
-                          borderColor: '#3D562A', backgroundColor: 'rgba(61, 86, 42, 0.2)', fill: true, tension: 0.4, borderWidth: 3
+                          // ✅ Updated line/fill colors
+                          borderColor: '#019308', backgroundColor: 'rgba(1, 147, 8, 0.15)', fill: true, tension: 0.4, borderWidth: 3
                       },
                       {
                           label: 'AI Forecast (MT)',
                           data: [...Array(apiData.historicalTrendData.length - 1).fill(null), apiData.historicalTrendData[apiData.historicalTrendData.length-1], ...apiData.forecastData],
-                          borderColor: '#758E4E', borderDash: [6, 6], backgroundColor: 'rgba(117, 142, 78, 0.1)', fill: true, tension: 0.4, borderWidth: 3
+                          // ✅ Updated forecast line color
+                          borderColor: '#04A82E', borderDash: [6, 6], backgroundColor: 'rgba(4, 168, 46, 0.08)', fill: true, tension: 0.4, borderWidth: 3
                       }
                   ]
               },
@@ -127,7 +133,8 @@ function PublicDashboard() {
               type: 'bar',
               data: {
                   labels: Object.keys(apiData.groupSplit),
-                  datasets: [{ label: 'Production (MT)', data: Object.values(apiData.groupSplit), backgroundColor: '#758E4E', borderRadius: 4 }]
+                  // ✅ Updated bar color
+                  datasets: [{ label: 'Production (MT)', data: Object.values(apiData.groupSplit), backgroundColor: '#04A82E', borderRadius: 4 }]
               },
               options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } } }
           });
@@ -137,7 +144,8 @@ function PublicDashboard() {
               type: 'doughnut',
               data: {
                   labels: Object.keys(apiData.commoditySplit),
-                  datasets: [{ data: Object.values(apiData.commoditySplit), backgroundColor: customPalette, borderWidth: 2, borderColor: '#FAF9F6' }]
+                  // ✅ Updated doughnut palette + border color
+                  datasets: [{ data: Object.values(apiData.commoditySplit), backgroundColor: customPalette, borderWidth: 2, borderColor: '#FAFDFB' }]
               },
               options: { maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false } } }
           });
@@ -147,12 +155,13 @@ function PublicDashboard() {
               type: 'bar',
               data: {
                   labels: Object.keys(apiData.farmerSplit),
-                  datasets: [{ label: 'Registered Farmers', data: Object.values(apiData.farmerSplit), backgroundColor: '#5F783D', borderRadius: 4 }]
+                  // ✅ Updated bar color
+                  datasets: [{ label: 'Registered Farmers', data: Object.values(apiData.farmerSplit), backgroundColor: '#02C937', borderRadius: 4 }]
               },
               options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
           });
 
-          // 5. FIXED REGIONAL CHART (Now shows Volume vs Farmers comparison)
+          // 5. Regional comparison chart
           chartRefs.current.regionalCompChart = new Chart(document.getElementById('regionalCompChart').getContext('2d'), {
               type: 'bar',
               data: {
@@ -161,13 +170,15 @@ function PublicDashboard() {
                       {
                           label: 'Production Volume (MT)',
                           data: apiData.regionalProduction,
-                          backgroundColor: '#3D562A',
+                          // ✅ Updated bar color
+                          backgroundColor: '#019308',
                           yAxisID: 'y'
                       },
                       {
                           label: 'Active Farmers',
                           data: apiData.regionalFarmers,
-                          backgroundColor: '#A5B08E',
+                          // ✅ Updated secondary bar color
+                          backgroundColor: '#A3E8B4',
                           yAxisID: 'y1'
                       }
                   ]
@@ -196,7 +207,7 @@ function PublicDashboard() {
         : "All Categories";
 
   return (
-    <div>
+    <div className="public-dashboard">
         <WelcomeModal />
 
         {isStatusModalOpen && (
@@ -256,7 +267,6 @@ function PublicDashboard() {
                     {filters.locations?.map(loc => <option key={loc} value={loc}>{loc}</option>) || <option>All Locations</option>}
                 </select>
 
-                {/* THE CUSTOM SEARCHABLE DROPDOWN */}
                 <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
                     <i className="fa-solid fa-magnifying-glass" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', zIndex: 2 }}></i>
                     
@@ -324,7 +334,7 @@ function PublicDashboard() {
                     </div>
                     <div className="kpi-sub" style={{ color: 'rgba(255,255,255,0.9)' }}>
                         <i className={`fa-solid ${apiData.kpis.qoqGrowth >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'}`}></i> 
-                        <span style={{ color: apiData.kpis.qoqGrowth >= 0 ? '#A8C17A' : '#FF5A5A', marginLeft: '5px', fontWeight: 'bold' }}>
+                        <span style={{ color: apiData.kpis.qoqGrowth >= 0 ? '#6FD48A' : '#FF5A5A', marginLeft: '5px', fontWeight: 'bold' }}>
                             {apiData.kpis.qoqGrowth >= 0 ? '+' : ''}{apiData.kpis.qoqGrowth}%
                         </span> vs prev. record
                     </div>
@@ -384,7 +394,8 @@ function PublicDashboard() {
                         {topCrops.map((key, index) => {
                             const val = apiData.commoditySplit[key];
                             const pct = apiData.kpis.totalVolume > 0 ? ((val / apiData.kpis.totalVolume) * 100).toFixed(1) : 0;
-                            const palette = ['#3D562A', '#4E6A34', '#5F783D', '#758E4E', '#8F9A75'];
+                            // ✅ Updated legend palette to RM green shades
+                            const palette = ['#019308', '#02C937', '#04A82E', '#3DBF5A', '#6FD48A'];
                             return <LegendRow key={key} title={key} value={val} percentage={pct} color={palette[index]} />;
                         })}
                     </div>
@@ -429,7 +440,7 @@ function PublicDashboard() {
                 <div style={{ height: '300px' }}><canvas id="lineChart"></canvas></div>
             </div>
 
-            {/* ROW 4: UPDATED REGIONAL DISTRIBUTION & FARMERS */}
+            {/* ROW 4: Regional Distribution & Farmers */}
             <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem', width: '100%' }}>
                 <div className="card">
                     <div className="card-header">
@@ -441,7 +452,6 @@ function PublicDashboard() {
                         </div>
                         <span className="card-badge badge-slate">Top 5 Cities</span>
                     </div>
-                    {/* CHANGED ID TO MATCH NEW CHART LOGIC */}
                     <div style={{ height: '250px' }}><canvas id="regionalCompChart"></canvas></div>
                 </div>
                 <div className="card">

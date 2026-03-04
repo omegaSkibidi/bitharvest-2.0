@@ -60,16 +60,16 @@ export default function AdminOverview() {
             {
               label: 'Total Submitted',
               data: [42, 58, 51, 73, 65, 18],
-              // Dark green for highlighted (most recent complete month), medium green for others
-              backgroundColor: (ctx) => ctx.dataIndex === 4 ? '#3D562A' : '#5F783D',
+              //  green for highlighted (most recent complete month), medium green for others
+              backgroundColor: (ctx) => ctx.dataIndex === 4 ? '#02C937' : '#04A82E',     
               borderRadius: 8,
               borderSkipped: false,
             },
             {
               label: 'Approved',
               data: [35, 48, 40, 60, 50, 0],
-              // Light green for Approved bars
-              backgroundColor: '#A8C97A',
+              //  green for Approved bars
+              backgroundColor: 'rgba(2, 201, 55, 0.25)',              
               borderRadius: 8,
               borderSkipped: false,
             },
@@ -172,11 +172,6 @@ export default function AdminOverview() {
         </div>
       </header>
 
-      {/* ALERT BANNER */}
-      <div className="tip-banner">
-        <span className="tip-icon"><i className="fa-solid fa-triangle-exclamation" style={{ color: 'var(--warn)' }} /></span>
-        <span className="tip-text"><strong>8 reports</strong> are pending your review — 3 of them have been waiting for more than 48 hours.</span>
-      </div>
 
       {/* STATS */}
       <div className="section-label">System Summary</div>
